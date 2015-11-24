@@ -12,7 +12,11 @@ def getProxy(c_node):
     userdata = c_node._private
     if not userdata:
         return None
-    return ffi.from_handle(userdata)
+    try:
+        proxy = ffi.from_handle(userdata)
+    except RuntimeError:
+        return None
+    return proxy
 
 def hasProxy(c_node):
     return bool(c_node._private)

@@ -33,7 +33,7 @@ ITER_EMPTY = iter(())
 # While we can borrow the c_name from the document dict,
 # PyPy requires us to store a Python reference for the
 # namespace in order to keep the byte buffer alive.
-class qname:
+class qname(object):
     pass
 
 # global per-thread setup
@@ -137,7 +137,7 @@ class LxmlSyntaxError(LxmlError, SyntaxError):
 
 
 # class for temporarily storing exceptions raised in extensions
-class _ExceptionContext:
+class _ExceptionContext(object):
     _exc_info = None
 
     def clear(self):
@@ -351,7 +351,7 @@ def _documentFactory(c_doc, parser):
     result._parser = parser
     return result
 
-class DocInfo:
+class DocInfo(object):
     u"Document information provided by parser and DTD."
     def __init__(self, tree):
         u"Create a DocInfo object for an ElementTree object or root Element."
@@ -1462,7 +1462,7 @@ from .classlookup import AttributeBasedElementClassLookup
 from .classlookup import set_element_class_lookup
 from .nsclasses import ElementNamespaceClassLookup, FunctionNamespace
 
-class QName:
+class QName(object):
     u"""QName(text_or_uri, tag=None)
 
     QName wrapper for qualified XML names.
@@ -1875,6 +1875,23 @@ class _ElementTree(object):
                 path = "." + path
         return root.findall(path, namespaces)
 
+    def iterfind(self, path, namespaces=None):
+        u"""iterfind(self, path, namespaces=None)
+
+        Iterates over all elements matching the ElementPath expression.
+        Same as getroot().iterfind(path).
+
+        The optional ``namespaces`` argument accepts a
+        prefix-to-namespace mapping that allows the usage of XPath
+        prefixes in the path expression.
+        """
+        self._assertHasRoot()
+        root = self.getroot()
+        if _isString(path):
+            if path[:1] == "/":
+                path = "." + path
+        return root.iterfind(path, namespaces)
+
     def xpath(self, _path, namespaces=None, extensions=None,
               smart_strings=True, **_variables):
         u"""xpath(self, _path, namespaces=None, extensions=None, smart_strings=True, **_variables)
@@ -2190,7 +2207,7 @@ def _newElementTree(doc, context_node, baseclass):
     return result
 
 
-class _Attrib:
+class _Attrib(object):
     u"""A dict-like proxy for the ``Element.attrib`` property.
     """
     def __init__(self, element):
@@ -2309,7 +2326,7 @@ class _Attrib:
     def __cmp__(self, other):
         return cmp(dict(self), dict(other))
 
-class _AttribIterator:
+class _AttribIterator(object):
     u"""Attribute iterator - for internal use only!
     """
     # XML attributes must not be removed while running!
@@ -2605,7 +2622,7 @@ class ElementDepthFirstIterator(object):
             return tree.ffi.NULL
 
 
-class ElementTextIterator:
+class ElementTextIterator(object):
     u"""ElementTextIterator(self, element, tag=None, with_tail=True)
     Iterates over the text content of a subtree.
 
