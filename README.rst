@@ -9,6 +9,17 @@ For an introduction and further documentation, see `doc/main.txt`_.
 For installation information, see `INSTALL.txt`_.
 
 
+What is lxml-cffi?
+==================
+
+lxml-cffi is a fork of lxml that uses CFFI instead of Cython on PyPy, which is
+faster and more reliable. Upstream does not support this fork, so please report
+bugs at the `lxml-cffi bugtracker`_ rather than the upstream bugtracker, unless
+you make sure to reproduce them with the upstream version as well.
+
+.. _`lxml-cffi bugtracker`: https://github.com/lxml-cffi/lxml-cffi/issues
+
+
 Support the project
 -------------------
 
@@ -16,7 +27,7 @@ lxml has been downloaded from the `Python Package Index`_ more than
 two million times and is also available directly in many package
 distributions, e.g. for Linux or MacOS-X.
 
-.. _`Python Package Index`: https://pypi.python.org/pypi/lxml
+.. _`Python Package Index`: https://pypi.python.org/pypi/lxml-cffi
 
 Most people who use lxml do so because they like using it.
 You can show us that you like it by blogging about your experience
