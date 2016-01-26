@@ -1555,7 +1555,7 @@ def _annotate_element(c_node, doc,
                     prefix, name = typename_utf8.split(b':', 1)
                     if not c_ns.prefix or c_ns.prefix[0] == '\0':
                         typename_utf8 = name
-                    elif tree.xmlStrcmp(_xcstr(prefix), c_ns.prefix) != 0:
+                    elif tree.xmlStrcmp(prefix, c_ns.prefix) != 0:
                         typename_utf8 = tree.ffi.string(c_ns.prefix) + b':' + name
                 elif c_ns.prefix and c_ns.prefix[0] != '\0':
                     typename_utf8 = tree.ffi.string(c_ns.prefix) + b':' + typename_utf8
