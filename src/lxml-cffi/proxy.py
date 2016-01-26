@@ -5,6 +5,8 @@ from .parser import _copyDoc
 
 from .apihelpers import _removeText
 
+_ALL_PROXIES = set()
+
 def getProxy(c_node):
     u"""Get a proxy for a given node.
     """
@@ -29,6 +31,7 @@ def _registerProxy(proxy, doc, c_node):
     proxy._doc = doc
     proxy._c_node = c_node
     userdata = ffi.new_handle(proxy)
+    _ALL_PROXIES.add(userdata)
     proxy._keepalive = userdata
     c_node._private = userdata
 
@@ -47,6 +50,7 @@ def _unregisterProxy(proxy):
     assert proxy._keepalive == userdata
     c_node._private = ffi.NULL
     del proxy._keepalive
+    _ALL_PROXIES.discard(userdata)
     return 0
 
 def detachProxy(proxy):
