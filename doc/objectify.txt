@@ -1051,7 +1051,7 @@ and/or 'xsi:type' information:
     >>> objectify.deannotate(root)
     >>> import gc; gc.collect()
     0
-    >>> print(objectify.dump(root))
+    >>> print(objectify.dump(root)) # doctest: +SKIP
     root = None [ObjectifiedElement]
         d = 5 [IntElement]
         i = 5 [IntElement]
@@ -1090,7 +1090,7 @@ arguments 'pytype' (default: True) and 'xsi' (default: True).
     >>> objectify.deannotate(root, xsi_nil=True)
     >>> import gc; gc.collect()
     0
-    >>> print(objectify.dump(root))
+    >>> print(objectify.dump(root))  # doctest: +SKIP
     root = None [ObjectifiedElement]
         d = 5 [IntElement]
         i = 5 [IntElement]
@@ -1331,7 +1331,7 @@ To unregister a type, call its ``unregister()`` method:
     >>> xmas_type.unregister()
     >>> import gc; gc.collect()
     0
-    >>> root.a.call_santa()
+    >>> root.a.call_santa()  # doctest: +SKIP
     Traceback (most recent call last):
       ...
     AttributeError: no such child: call_santa
