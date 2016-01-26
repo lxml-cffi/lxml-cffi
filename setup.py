@@ -17,6 +17,7 @@ except ImportError:
 
 import versioninfo
 import setupinfo
+import platform
 
 # override these and pass --static for a static build. See
 # doc/build.txt for more information. If you do not pass --static
@@ -34,6 +35,7 @@ print("Building lxml version %s." % svn_version)
 OPTION_RUN_TESTS = setupinfo.has_option('run-tests')
 
 extra_options = {}
+extra_options['extras_require'] = {}
 if 'setuptools' in sys.modules:
     extra_options['zip_safe'] = False
 
@@ -155,6 +157,12 @@ def setup_extra_options():
             package_data[package] = filenames
             package_dir[package] = root_path
 
+    extra_opts['extras_require'][":platform_python_implementation != 'PyPy'"] = ["cffi>=1.4.1"]
+    if platform.python_implementation() == 'PyPy':
+        if sys.pypy_version_info < (2, 6):
+            raise RuntimeError("Please upgrade to at least PyPy 2.6")
+    else:
+        extra_opts['setup_requires'] = ['cffi>=1.4.1']
     return extra_opts
 
 setup(
@@ -196,7 +204,6 @@ works more reliably.
     'Topic :: Text Processing :: Markup :: XML',
     'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-
     **setup_extra_options()
 )
 

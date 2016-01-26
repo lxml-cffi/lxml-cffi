@@ -411,11 +411,4 @@ OPTION_MULTICORE = option_value('multicore')
 OPTION_DOWNLOAD_DIR = option_value('download-dir')
 if OPTION_DOWNLOAD_DIR is None:
     OPTION_DOWNLOAD_DIR = 'libs'
-OPTION_CFFI_ONLY = has_option('cffi-only')
-
-try:
-    import __pypy__
-except ImportError:
-    pass
-else:
-    OPTION_CFFI_ONLY = True
+OPTION_CFFI_ONLY = True

@@ -1,23 +1,15 @@
+sudo: false
 language: python
-
+cache:
+  directories:
+  - "$HOME/.cache/pip"
+  - "$HOME/.pyenv"
 python:
-  - 2.6
-  - 2.7
-  - 3.2
-  - 3.3
-  - 3.4
-  - pypy
-  - pypy3
-
+- 2.7
+- pypy
 install:
-    pip install --use-mirrors -r requirements.txt
-
+- .travis/install.sh
 script:
-  - python -u setup.py clean
-  - CFLAGS="-O0 -g" python -u setup.py build_ext --inplace
-  - CFLAGS="-O0 -g" PYTHONUNBUFFERED=x make test
-
-matrix:
-  allow_failures:
-    - python: pypy
-    - python: pypy3
+- python -u setup.py clean
+- CFLAGS="-O0 -g" python -u setup.py build_ext --inplace
+- CFLAGS="-O0 -g" PYTHONUNBUFFERED=x make test
