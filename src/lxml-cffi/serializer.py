@@ -191,6 +191,10 @@ def _raiseSerialisationError(error_result):
 ############################################################
 # low-level serialisation functions
 
+def _writeDoctype(c_buffer, c_doctype):
+    tree.xmlOutputBufferWrite(c_buffer, len(c_doctype), c_doctype)
+    tree.xmlOutputBufferWriteString(c_buffer, "\n")
+
 def _writeNodeToBuffer(c_buffer, c_node, encoding, c_doctype,
                        c_method, write_xml_declaration,
                        write_complete_document,
@@ -200,8 +204,7 @@ def _writeNodeToBuffer(c_buffer, c_node, encoding, c_doctype,
     if write_xml_declaration and c_method == OUTPUT_METHOD_XML:
         _writeDeclarationToBuffer(c_buffer, c_doc.version, encoding, standalone)
     if c_doctype:
-        tree.xmlOutputBufferWrite(c_buffer, len(c_doctype), c_doctype)
-        tree.xmlOutputBufferWriteString(c_buffer, "\n")
+        _writeDoctype(c_buffer, c_doctype)
 
     # write internal DTD subset, preceding PIs/comments, etc.
     if write_complete_document and not c_buffer.error:
@@ -435,7 +438,7 @@ def _tofilelike(f, element, encoding, doctype, method,
         return
 
     if encoding is None:
-        c_enc = NULL
+        c_enc = tree.ffi.NULL
     else:
         encoding = _utf8(encoding)
         c_enc = encoding
@@ -443,7 +446,7 @@ def _tofilelike(f, element, encoding, doctype, method,
         c_doctype = tree.ffi.NULL
     else:
         doctype = _utf8(doctype)
-        c_doctype = _xcstr(doctype)
+        c_doctype = doctype
 
     writer, c_buffer = _create_output_buffer(f, c_enc, compression, close=False)
 
@@ -550,7 +553,7 @@ def _tofilelikeC14N(f, element, exclusive, with_comments, compression,
 # incremental serialisation
 
 class xmlfile(object):
-    """xmlfile(self, output_file, encoding=None, compression=None, close=False)
+    """xmlfile(self, output_file, encoding=None, compression=None, close=False, buffered=True)
 
     A simple mechanism for incremental XML serialisation.
 
@@ -576,18 +579,26 @@ class xmlfile(object):
     of opening and closing the file itself.  Also, when a compression level
     is set, lxml will deliberately close the file to make sure all data gets
     compressed and written.
+
+    Setting ``buffered=False`` will flush the output after each operation,
+    such as opening or closing an ``xf.element()`` block or calling
+    ``xf.write()``.  Alternatively, calling ``xf.flush()`` can be used to
+    explicitly flush any pending output when buffering is enabled.
     """
     def __init__(self, output_file, encoding=None, compression=None,
-                 close=False):
+                 close=False, buffered=True):
         self.output_file = output_file
         self.encoding = _utf8orNone(encoding)
         self.compresslevel = compression or 0
         self.close = close
+        self.buffered = buffered
+        self.method = OUTPUT_METHOD_XML
 
     def __enter__(self):
         assert self.output_file is not None
         self.writer = _IncrementalFileWriter(
-            self.output_file, self.encoding, self.compresslevel, self.close)
+            self.output_file, self.encoding, self.compresslevel,
+            self.close, self.buffered, self.method)
         return self.writer
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -599,6 +610,17 @@ class xmlfile(object):
                 self.output_file = None
 
 
+class htmlfile(xmlfile):
+    """htmlfile(self, output_file, encoding=None, compression=None, close=False, buffered=True)
+
+    A simple mechanism for incremental HTML serialisation.  Works the same as
+    xmlfile.
+    """
+    def __init__(self, *args, **kwargs):
+        super(htmlfile, self).__init__(*args, **kwargs)
+        self.method = OUTPUT_METHOD_HTML
+
+
 (WRITER_STARTING,
  WRITER_DECL_WRITTEN,
  WRITER_DTD_WRITTEN,
@@ -607,18 +629,66 @@ class xmlfile(object):
 
 
 class _IncrementalFileWriter(object):
-    def __init__(self, outfile, encoding, compresslevel, close):
+    def __init__(self, outfile, encoding, compresslevel, close, buffered,
+                 method):
         self._status = WRITER_STARTING
         self._element_stack = []
         if encoding is None:
             encoding = b'ASCII'
         self._encoding = encoding
+        self._buffered = buffered
         self._target, self._c_out = _create_output_buffer(
             outfile, self._encoding, compresslevel, close)
+        self._method = method
 
-    def __dealloc__(self):
+    def __del__(self):
         if self._c_out:
             tree.xmlOutputBufferClose(self._c_out)
+            self._c_out = None
+
+    def write_declaration(self, version=None, standalone=None, doctype=None):
+        """write_declaration(self, version=None, standalone=None, doctype=None)
+
+        Write an XML declaration and (optionally) a doctype into the file.
+        """
+        assert self._c_out
+        if self._method != OUTPUT_METHOD_XML:
+            raise LxmlSyntaxError("only XML documents have declarations")
+        if self._status >= WRITER_DECL_WRITTEN:
+            raise LxmlSyntaxError("XML declaration already written")
+        version = _utf8orNone(version)
+        c_version = version
+        doctype = _utf8orNone(doctype)
+        if standalone is None:
+            c_standalone = -1
+        else:
+            c_standalone = 1 if standalone else 0
+        _writeDeclarationToBuffer(self._c_out, c_version, self._c_encoding, c_standalone)
+        if doctype is not None:
+            _writeDoctype(self._c_out, doctype)
+            self._status = WRITER_DTD_WRITTEN
+        else:
+            self._status = WRITER_DECL_WRITTEN
+        if not self._buffered:
+            tree.xmlOutputBufferFlush(self._c_out)
+        self._handle_error(self._c_out.error)
+
+    def write_doctype(self, doctype):
+        """write_doctype(self, doctype)
+
+        Writes the given doctype declaration verbatimly into the file.
+        """
+        assert self._c_out
+        if doctype is None:
+            return
+        if self._status >= WRITER_DTD_WRITTEN:
+            raise LxmlSyntaxError("DOCTYPE already written or cannot write it here")
+        doctype = _utf8(doctype)
+        _writeDoctype(self._c_out, doctype)
+        self._status = WRITER_DTD_WRITTEN
+        if not self._buffered:
+            tree.xmlOutputBufferFlush(self._c_out)
+        self._handle_error(self._c_out.error)
 
     def element(self, tag, attrib=None, nsmap=None, **_extra):
         """element(self, tag, attrib=None, nsmap=None, **_extra)
@@ -666,6 +736,8 @@ class _IncrementalFileWriter(object):
         self._write_attributes_and_namespaces(
             attributes, flat_namespace_map, new_namespaces)
         tree.xmlOutputBufferWrite(self._c_out, 1, '>')
+        if not self._buffered:
+            tree.xmlOutputBufferFlush(self._c_out)
         self._handle_error(self._c_out.error)
 
         self._element_stack.append((ns, name, prefix, flat_namespace_map))
@@ -706,6 +778,8 @@ class _IncrementalFileWriter(object):
 
         if not self._element_stack:
             self._status = WRITER_FINISHED
+        if not self._buffered:
+            tree.xmlOutputBufferFlush(self._c_out)
         self._handle_error(self._c_out.error)
 
     def _find_prefix(self, href, flat_namespaces_map, new_namespaces):
@@ -763,7 +837,7 @@ class _IncrementalFileWriter(object):
                 if self._status > WRITER_IN_ELEMENT:
                     raise LxmlSyntaxError("cannot append trailing element to complete XML document")
                 _writeNodeToBuffer(self._c_out, content._c_node,
-                                   self._encoding, tree.ffi.NULL, OUTPUT_METHOD_XML,
+                                   self._encoding, tree.ffi.NULL, self._method,
                                    False, False, pretty_print, with_tail, False)
                 if content._c_node.type == tree.XML_ELEMENT_NODE:
                     if not self._element_stack:
@@ -771,6 +845,16 @@ class _IncrementalFileWriter(object):
             else:
                 raise TypeError("got invalid input value of type %s, expected string or Element" % type(content))
             self._handle_error(self._c_out.error)
+        if not self._buffered:
+            tree.xmlOutputBufferFlush(self._c_out)
+
+    def flush(self):
+        """flush(self)
+
+        Write any pending content of the current output buffer to the stream.
+        """
+        assert self._c_out
+        tree.xmlOutputBufferFlush(self._c_out)
 
     def _close(self, raise_on_error):
         if raise_on_error:

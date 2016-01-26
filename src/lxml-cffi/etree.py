@@ -1316,7 +1316,7 @@ from .proxy import _registerProxy, _unregisterProxy
 from .proxy import attemptDeallocation, moveNodeToDocument
 from .proxy import _fakeRootDoc, _destroyFakeDoc
 from .serializer import _tostring, _tofilelike, _tofilelikeC14N, _tostringC14N
-from .serializer import xmlfile
+from .serializer import xmlfile, htmlfile
 from .iterparse import iterparse, iterwalk
 from .saxparser import TreeBuilder
 from .extensions import XPathEvalError, XPathResultError, Extension
