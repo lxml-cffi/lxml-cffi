@@ -95,6 +95,8 @@ class _LogEntry(object):
         self.column  = 0
         self._message = message
         self._filename = filename
+        self._c_message = tree.ffi.NULL
+        self._c_filename = tree.ffi.NULL
 
     def __repr__(self):
         return u"%s:%d:%d:%s:%s:%s: %s" % (
