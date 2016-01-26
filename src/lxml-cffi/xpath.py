@@ -65,13 +65,13 @@ def _registerExsltFunctionsForNamespaces(_c_href, _ctxt, c_prefix):
     c_href = ffi.string(ffi.cast("const xmlChar*", _c_href))
     ctxt = ffi.cast("xmlXPathContextPtr", _ctxt)
 
-    if c_href == xslt.EXSLT_DATE_NAMESPACE:
+    if tree.xmlStrcmp(c_href, xslt.EXSLT_DATE_NAMESPACE) == 0:
         xslt.exsltDateXpathCtxtRegister(ctxt, c_prefix)
-    elif c_href == xslt.EXSLT_SETS_NAMESPACE:
+    elif tree.xmlStrcmp(c_href, xslt.EXSLT_SETS_NAMESPACE) == 0:
         xslt.exsltSetsXpathCtxtRegister(ctxt, c_prefix)
-    elif c_href == xslt.EXSLT_MATH_NAMESPACE:
+    elif tree.xmlStrcmp(c_href, xslt.EXSLT_MATH_NAMESPACE) == 0:
         xslt.exsltMathXpathCtxtRegister(ctxt, c_prefix)
-    elif c_href == xslt.EXSLT_STRINGS_NAMESPACE:
+    elif tree.xmlStrcmp(c_href, xslt.EXSLT_STRINGS_NAMESPACE) == 0:
         xslt.exsltStrXpathCtxtRegister(ctxt, c_prefix)
 
 if _LIBXML_VERSION_INT == 20627:
