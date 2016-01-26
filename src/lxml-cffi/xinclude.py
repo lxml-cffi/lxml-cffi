@@ -12,7 +12,7 @@ class XIncludeError(LxmlError):
     """
     pass
 
-class XInclude:
+class XInclude(object):
     u"""XInclude(self)
     XInclude processor.
 

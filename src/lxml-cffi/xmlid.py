@@ -58,7 +58,7 @@ def parseid(source, parser=None, base_url=None):
     doc = _parseDocument(source, parser, base_url)
     return (_elementTreeFactory(doc, None), _IDDict(doc))
 
-class _IDDict:
+class _IDDict(object):
     u"""IDDict(self, etree)
     A dictionary-like proxy class that mapps ID attributes to elements.
 

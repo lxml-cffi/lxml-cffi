@@ -32,7 +32,7 @@ class XPathResultError(XPathEvalError):
 ################################################################################
 # Base class for XSLT and XPath evaluation contexts: functions, namespaces, ...
 
-class _BaseContext:
+class _BaseContext(object):
     def __init__(self, namespaces, extensions, error_log, enable_regexp,
                  build_smart_strings):
         self._xpathCtxt = xpath.ffi.NULL
@@ -377,7 +377,7 @@ def Extension(module, function_mapping=None, ns=None):
 ################################################################################
 # EXSLT regexp implementation
 
-class _ExsltRegExp:
+class _ExsltRegExp(object):
     def __init__(self):
         self._compile_map = {}
 

@@ -9,7 +9,7 @@ from .apihelpers import _getFilenameForFile, _encodeFilename
  PARSER_DATA_FILE,
  ) = range(5)
 
-class _InputDocument:
+class _InputDocument(object):
     _type = PARSER_DATA_INVALID
     _filename = None
 
@@ -87,7 +87,7 @@ class Resolver(object):
         doc_ref._file = f
         return doc_ref
 
-class _ResolverRegistry:
+class _ResolverRegistry(object):
     def __init__(self, default_resolver=None):
         self._resolvers = set()
         self._default_resolver = default_resolver

@@ -235,7 +235,7 @@ class iterparse(object):
         return False
 
 
-class iterwalk:
+class iterwalk(object):
     u"""iterwalk(self, element_or_tree, events=("end",), tag=None)
 
     A tree walker that generates events from an existing tree as if it

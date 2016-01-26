@@ -22,7 +22,7 @@ class DTDParseError(DTDError):
 def _assertValidDTDNode(node, c_node):
     assert c_node, u"invalid DTD proxy at %s" % id(node)
 
-class _DTDElementContentDecl:
+class _DTDElementContentDecl(object):
     _c_node = tree.ffi.NULL
 
     def __repr__(self):
@@ -87,7 +87,7 @@ class _DTDElementContentDecl:
        else:
            return None
 
-class _DTDAttributeDecl:
+class _DTDAttributeDecl(object):
     c_node = tree.ffi.NULL
 
     def __repr__(self):
@@ -166,7 +166,7 @@ class _DTDAttributeDecl:
         return list(self.itervalues())
 
 
-class _DTDElementDecl:
+class _DTDElementDecl(object):
     _c_node = tree.ffi.NULL
 
     def __repr__(self):
@@ -224,7 +224,7 @@ class _DTDElementDecl:
     def attributes(self):
         return list(self.iterattributes())
 
-class _DTDEntityDecl:
+class _DTDEntityDecl(object):
     _c_node = tree.ffi.NULL
 
     def __repr__(self):

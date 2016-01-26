@@ -344,7 +344,7 @@ def _writeNextSiblings(c_buffer, c_node,
 ############################################################
 # output to file-like objects
 
-class _FilelikeWriter:
+class _FilelikeWriter(object):
     _close_filelike = None
 
     def __init__(self, filelike, exc_context=None, compression=None, close=False):
@@ -797,7 +797,7 @@ class _IncrementalFileWriter(object):
                 self._target._exc_context._raise_if_stored()
             _raiseSerialisationError(error_result)
 
-class _FileWriterElement:
+class _FileWriterElement(object):
     def __init__(self, writer, element_config):
         self._writer = writer
         self._element = element_config

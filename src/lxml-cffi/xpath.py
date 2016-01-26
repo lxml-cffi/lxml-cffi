@@ -125,7 +125,7 @@ class _XPathContext(_BaseContext):
                 self._xpathCtxt, name_utf, _wrapXPathObject(value, None, None))
 
 
-class _XPathEvaluatorBase:
+class _XPathEvaluatorBase(object):
     _xpathCtxt = ffi.NULL
 
     def __init__(self, namespaces, extensions, enable_regexp,

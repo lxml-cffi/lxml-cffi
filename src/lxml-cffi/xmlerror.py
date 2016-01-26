@@ -162,7 +162,7 @@ class _LogEntry(object):
         return self._filename        
 
 
-class _BaseErrorLog:
+class _BaseErrorLog(object):
     _handle = None
 
     def __init__(self, first_error, last_error):

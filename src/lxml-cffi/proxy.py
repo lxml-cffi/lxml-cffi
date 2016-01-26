@@ -193,7 +193,7 @@ def _copyParentNamespaces(c_from_node, c_to_node):
             c_new_ns = c_new_ns.next
         c_parent = c_parent.parent
 
-class _nscache:
+class _nscache(object):
     pass
 
 def _appendToNsCache(c_ns_cache,

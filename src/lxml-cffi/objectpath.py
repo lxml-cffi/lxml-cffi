@@ -9,7 +9,7 @@ from .includes import tree
 from .apihelpers import _getNs, _tagMatches
 from .objectify import _findFollowingSibling, _appendValue, _replaceElement
 
-class _ObjectPath:
+class _ObjectPath(object):
     pass
 
 

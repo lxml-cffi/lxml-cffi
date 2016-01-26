@@ -7,7 +7,7 @@ from .readonlytree import _newReadOnlyProxy, _freeReadOnlyProxies
 from .readonlytree import _newAppendOnlyProxy, _newOpaqueAppendOnlyNodeWrapper
 from .readonlytree import _roNodeOf, _nonRoNodeOf
 
-class XSLTExtension:
+class XSLTExtension(object):
     u"""Base class of an XSLT extension element.
     """
 
