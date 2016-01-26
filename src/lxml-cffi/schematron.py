@@ -116,9 +116,9 @@ class Schematron(_Validator):
                 u"Document is not a valid Schematron schema",
                 self._error_log)
 
-    def __dealloc__(self):
+    def __del__(self):
         schematron.xmlSchematronFree(self._c_schema)
-        if self._c_schema_doc is not NULL:
+        if self._c_schema_doc:
             tree.xmlFreeDoc(self._c_schema_doc)
 
     def __call__(self, etree):
