@@ -82,6 +82,13 @@ def _rootNodeOrRaise(input):
     _assertValidNode(node)
     return node
 
+def _isAncestorOrSame(c_ancestor, c_node):
+    while c_node:
+        if c_node == c_ancestor:
+            return True
+        c_node = c_node.parent
+    return False
+
 def _makeElement(tag, c_doc, doc,
                  parser, text, tail, attrib, nsmap,
                  extra_attrs):
@@ -1147,11 +1154,8 @@ def _appendChild(parent, child):
     c_node = child._c_node
     c_source_doc = c_node.doc
     # prevent cycles
-    c_parent = parent._c_node
-    while c_parent:
-        if c_parent == c_node:
-            raise ValueError("cannot append parent to itself")
-        c_parent = c_parent.parent
+    if _isAncestorOrSame(c_node, parent._c_node):
+        raise ValueError("cannot append parent to itself")
     # store possible text node
     c_next = c_node.next
     # move node itself
@@ -1169,11 +1173,8 @@ def _prependChild(parent, child):
     c_node = child._c_node
     c_source_doc = c_node.doc
     # prevent cycles
-    c_parent = parent._c_node
-    while c_parent:
-        if c_parent == c_node:
-            raise ValueError("cannot append parent to itself")
-        c_parent = c_parent.parent
+    if _isAncestorOrSame(c_node, parent._c_node):
+        raise ValueError("cannot append parent to itself")
     # store possible text node
     c_next = c_node.next
     # move node itself
@@ -1193,8 +1194,11 @@ def _appendSibling(element, sibling):
     """
     from .proxy import moveNodeToDocument
     c_node = sibling._c_node
-    if element._c_node == c_node:
-        return 0  # nothing to do
+    # prevent cycles
+    if _isAncestorOrSame(c_node, element._c_node):
+        if element._c_node == c_node:
+            return 0  # nothing to do
+        raise ValueError("cannot add ancestor as sibling, please break cycle first")
     c_source_doc = c_node.doc
     # store possible text node
     c_next = c_node.next
@@ -1210,8 +1214,10 @@ def _prependSibling(element, sibling):
     """
     from .proxy import moveNodeToDocument
     c_node = sibling._c_node
-    if element._c_node == c_node:
-        return 0  # nothing to do
+    if _isAncestorOrSame(c_node, element._c_node):
+        if element._c_node == c_node:
+            return 0  # nothing to do
+        raise ValueError("cannot add ancestor as sibling, please break cycle first")
     c_source_doc = c_node.doc
     # store possible text node
     c_next = c_node.next
