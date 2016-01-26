@@ -8,6 +8,7 @@ ffi.cdef("""
     const xmlChar * xmlStrstr            (const xmlChar *str,
                                          const xmlChar *val);
     const char * xmlParserVersion;
+    static const int LIBXML_VERSION;
 
     void *xmlMalloc(size_t size);
     void xmlFree(void *mem);

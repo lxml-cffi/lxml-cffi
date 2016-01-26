@@ -23,6 +23,7 @@ libxml = ffi.verify("""
     #include "libxml/xinclude.h"
     #include "libxml/xmlerror.h"
     #include "libxml/xmlschemas.h"
+    #include "libxml/xmlversion.h"
     #include "libxml/xpath.h"
     #include "libxml/xpathInternals.h"
     #include "libxslt/xsltutils.h"
@@ -54,8 +55,7 @@ libxml = ffi.verify("""
 
 libxml.ffi = ffi
 
-libxml.LXML_VERSION_STRING = "3.0.2"  # XXX AFA read it from $ROOT/version.txt
-libxml.LIBXML_VERSION = 20700  # XXX AFA FIXME
+libxml.LXML_VERSION_STRING = "3.4.0"  # XXX AFA read it from $ROOT/version.txt
 
 # This overrides the modules!
 tree = dtdvalid = xmlerror = xmlparser = htmlparser = relaxng = libxml
