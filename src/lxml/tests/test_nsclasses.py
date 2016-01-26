@@ -69,6 +69,8 @@ class ETreeNamespaceClassesTestCase(HelperTestCase):
         import gc;gc.collect()
 
         self.Namespace('ns11').update(maeh_dict)
+
+        tree = self.parse(_bytes('<bluff xmlns="ns10"><ns11:maeh xmlns:ns11="ns11"/></bluff>'))
         el = tree.getroot()
         self.assertTrue(hasattr(el, 'bluff'))
         self.assertTrue(hasattr(el[0], 'maeh'))
