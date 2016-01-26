@@ -156,15 +156,6 @@ def ext_modules(static_include_dirs, static_library_dirs,
         from Cython.Build import cythonize
         result = cythonize(result)
 
-    import importlib
-    sys.path[0:0] = ['src']
-    # Break an import loop
-    import lxml.etree
-    for module in CFFI_MODULES:
-        ffi = importlib.import_module('lxml.' + module).ffi
-        result.append(ffi.verifier.get_extension())
-    del sys.path[0]
-
     return result
 
 def find_dependencies(module):
