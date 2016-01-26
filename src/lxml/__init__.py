@@ -1,13 +1,7 @@
 # this is a package
 
-try:
-    import __pypy__
-except ImportError:
-    pass
-else:
-    # PyPy prefers the cffi port
-    import os
-    __path__.insert(0, os.path.join(__path__[0], "../lxml-cffi"))
+import os
+__path__.insert(0, os.path.join(__path__[0], "../lxml-cffi"))
 
 def get_include():
     """
