@@ -203,7 +203,7 @@ except Exception:
     print u"Unknown libxml2 version: %s" % ffi.string(tree.xmlParserVersion).decode("ascii")
     _LIBXML_VERSION_INT = 0
 
-LXML_VERSION_STRING = '3.4.0.0'
+LXML_VERSION_STRING = '3.4.0.1'
 LXML_VERSION = __unpackDottedVersion(LXML_VERSION_STRING)
 LIBXML_COMPILED_VERSION = __unpackIntVersion(tree.LIBXML_VERSION)
 LIBXML_VERSION = __unpackIntVersion(_LIBXML_VERSION_INT)
