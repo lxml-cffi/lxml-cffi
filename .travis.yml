@@ -13,3 +13,5 @@ script:
 - python -u setup.py clean
 - CFLAGS="-O0 -g" python -u setup.py build_ext --inplace
 - CFLAGS="-O0 -g" PYTHONUNBUFFERED=x make test
+notifications:
+  email: false
