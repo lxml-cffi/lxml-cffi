@@ -1,6 +1,4 @@
-from .cffi_base import ffi
-
-ffi.cdef("""
+DEFS = """
     typedef struct _xmlValidCtxt xmlValidCtxt;
     typedef xmlValidCtxt *xmlValidCtxtPtr;
     typedef void (*xmlValidityErrorFunc)(void * ctx, const char * msg, ...);
@@ -15,9 +13,9 @@ ffi.cdef("""
 
     xmlValidCtxtPtr xmlNewValidCtxt(void);
     void xmlFreeValidCtxt(xmlValidCtxtPtr);
-    int 	xmlValidateDtd		(xmlValidCtxtPtr ctxt,
-					 xmlDocPtr doc,
-					 xmlDtdPtr dtd);
-    xmlElementPtr	xmlGetDtdElementDesc	(xmlDtdPtr dtd, 
-					 const xmlChar * name);
-""")
+    int         xmlValidateDtd          (xmlValidCtxtPtr ctxt,
+                                         xmlDocPtr doc,
+                                         xmlDtdPtr dtd);
+    xmlElementPtr       xmlGetDtdElementDesc    (xmlDtdPtr dtd,
+                                         const xmlChar * name);
+"""

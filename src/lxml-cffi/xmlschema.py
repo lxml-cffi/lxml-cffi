@@ -1,8 +1,4 @@
 #  support for XMLSchema validation
-from .includes import xmlschema
-from .includes import tree
-from .includes import xmlerror
-from .includes import xmlparser
 from .etree import LxmlError, _Validator, _LIBXML_VERSION_INT
 from .apihelpers import _documentOrRaise, _rootNodeOrRaise, _isString
 from .apihelpers import _encodeFilename
@@ -10,6 +6,8 @@ from .xmlerror import _receiveError
 from .proxy import _fakeRootDoc, _destroyFakeDoc
 from .parser import _GLOBAL_PARSER_CONTEXT, _parseDocument
 from .xpath import XPath
+from ._libxml2 import ffi, lib
+xmlschema = tree = xmlerror = xmlparser = lib
 
 class XMLSchemaError(LxmlError):
     u"""Base class of all XML Schema errors
@@ -43,14 +41,14 @@ class XMLSchema(_Validator):
     Passing the ``attribute_defaults`` boolean option will make the
     schema insert default/fixed attributes into validated documents.
     """
-    _c_schema = xmlschema.ffi.NULL
+    _c_schema = ffi.NULL
     _has_default_attributes = True # play safe
     _add_attribute_defaults = False
 
     def __init__(self, etree=None, file=None, attribute_defaults=False):
         self._add_attribute_defaults = attribute_defaults
         _Validator.__init__(self)
-        fake_c_doc = tree.ffi.NULL
+        fake_c_doc = ffi.NULL
         if etree is not None:
             doc = _documentOrRaise(etree)
             root_node = _rootNodeOrRaise(etree)
@@ -160,8 +158,8 @@ class XMLSchema(_Validator):
         return context
 
 class _ParserSchemaValidationContext(object):
-    _valid_ctxt = xmlschema.ffi.NULL
-    _sax_plug = xmlschema.ffi.NULL
+    _valid_ctxt = ffi.NULL
+    _sax_plug = ffi.NULL
     _add_default_attributes = False
 
     def __del__(self):
@@ -194,18 +192,18 @@ class _ParserSchemaValidationContext(object):
         if error_log is not None:
             xmlschema.xmlSchemaSetValidStructuredErrors(
                 self._valid_ctxt, _receiveError, error_log.get_handle())
-        sax_ptr = xmlparser.ffi.addressof(c_ctxt, "sax")
-        usr_ptr = xmlparser.ffi.addressof(c_ctxt, "userData")
+        sax_ptr = ffi.addressof(c_ctxt, "sax")
+        usr_ptr = ffi.addressof(c_ctxt, "userData")
         self._sax_plug = xmlschema.xmlSchemaSAXPlug(
             self._valid_ctxt, sax_ptr, usr_ptr)
 
     def disconnect(self):
         if self._sax_plug:
             xmlschema.xmlSchemaSAXUnplug(self._sax_plug)
-            self._sax_plug = xmlschema.ffi.NULL
+            self._sax_plug = ffi.NULL
         if self._valid_ctxt:
             xmlschema.xmlSchemaSetValidStructuredErrors(
-                self._valid_ctxt, xmlerror.ffi.NULL, xmlerror.ffi.NULL)
+                self._valid_ctxt, ffi.NULL, ffi.NULL)
 
     def isvalid(self):
         if not self._valid_ctxt:

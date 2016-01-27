@@ -24,8 +24,8 @@ from .apihelpers import _findChildForwards, _findChildBackwards
 from .apihelpers import _encodeFilename, _decodeFilename
 from . import _elementpath
 from .xmlerror import _initThreadLogging, clear_error_log
-from .includes import xmlparser
-from .includes import tree
+from ._libxml2 import ffi, lib
+xmlparser = tree = lib
 
 ITER_EMPTY = iter(())
 
@@ -198,16 +198,17 @@ from .includes.etree_defs import FOR_EACH_ELEMENT_FROM
 
 try:
     _LIBXML_VERSION_INT = int(
-        re.match(u'[0-9]+', tree.ffi.string(tree.xmlParserVersion).decode("ascii")).group(0))
+        re.match(u'[0-9]+', ffi.string(tree.xmlParserVersion).decode("ascii")).group(0))
 except Exception:
-    print u"Unknown libxml2 version: %s" % tree.ffi.string(tree.xmlParserVersion).decode("ascii")
+    print u"Unknown libxml2 version: %s" % ffi.string(tree.xmlParserVersion).decode("ascii")
     _LIBXML_VERSION_INT = 0
 
-LXML_VERSION = __unpackDottedVersion(tree.LXML_VERSION_STRING)
+LXML_VERSION_STRING = '3.4.0.0'
+LXML_VERSION = __unpackDottedVersion(LXML_VERSION_STRING)
 LIBXML_COMPILED_VERSION = __unpackIntVersion(tree.LIBXML_VERSION)
 LIBXML_VERSION = __unpackIntVersion(_LIBXML_VERSION_INT)
 
-__version__ = tree.LXML_VERSION_STRING.decode("ascii")
+__version__ = LXML_VERSION_STRING.decode("ascii")
 
 ################################################################################
 # Public Python API
@@ -334,7 +335,7 @@ class _Document(object):
 
     def _setNodeNs(self, c_node, href):
         u"Lookup namespace structure and set it for the node."
-        c_ns = self._findOrBuildNodeNs(c_node, href, tree.ffi.NULL, 0)
+        c_ns = self._findOrBuildNodeNs(c_node, href, ffi.NULL, 0)
         tree.xmlSetNs(c_node, c_ns)
 
 _PREFIX_CACHE = tuple(("ns%d" % i).encode() for i in range(30))
@@ -406,13 +407,13 @@ class DocInfo(object):
         u"The source URL of the document (or None if unknown)."
         if not self._doc._c_doc.URL:
             return None
-        return _decodeFilename(tree.ffi.string(self._doc._c_doc.URL))
+        return _decodeFilename(ffi.string(self._doc._c_doc.URL))
     @URL.setter
     def URL(self, url):
         url = _encodeFilename(url)
         c_oldurl = self._doc._c_doc.URL
         if url is None:
-            self._doc._c_doc.URL = tree.ffi.NULL
+            self._doc._c_doc.URL = ffi.NULL
         else:
             self._doc._c_doc.URL = tree.xmlStrdup(url)
         if c_oldurl:
@@ -451,7 +452,7 @@ class _Element(object):
     By pointing to a Document instance, a reference is kept to
     _Document as long as there is some pointer to a node in it.
     """
-    _c_node = tree.ffi.NULL
+    _c_node = ffi.NULL
     _tag = None
 
     def _init(self):
@@ -475,7 +476,7 @@ class _Element(object):
 
         Replaces the given subelement index or slice.
         """
-        c_node = tree.ffi.NULL
+        c_node = ffi.NULL
         slicelength = 0
         step = 0
         _assertValidNode(self)
@@ -512,7 +513,7 @@ class _Element(object):
 
         Deletes the given subelement or a slice.
         """
-        c_node = tree.ffi.NULL
+        c_node = ffi.NULL
         step = 0
         slicelength = 0
         _assertValidNode(self)
@@ -732,7 +733,7 @@ class _Element(object):
         self._tag = value
         tree.xmlNodeSetName(self._c_node, name)
         if ns is None:
-            self._c_node.ns = tree.ffi.NULL
+            self._c_node.ns = ffi.NULL
         else:
             self._doc._setNodeNs(self._c_node, ns)
 
@@ -842,9 +843,9 @@ class _Element(object):
         if not c_base:
             if not self._doc._c_doc.URL:
                 return None
-            return _decodeFilename(tree.ffi.string(self._doc._c_doc.URL))
+            return _decodeFilename(ffi.string(self._doc._c_doc.URL))
         try:
-            base = _decodeFilename(tree.ffi.string(c_base))
+            base = _decodeFilename(ffi.string(c_base))
         finally:
             tree.xmlFree(c_base)
         return base
@@ -852,7 +853,7 @@ class _Element(object):
     def base(self, url):
         _assertValidNode(self)
         if url is None:
-            c_base = tree.ffi.NULL
+            c_base = ffi.NULL
         else:
             url = _encodeFilename(url)
             c_base = url
@@ -867,7 +868,7 @@ class _Element(object):
         u"""Returns the subelement at the given position or the requested
         slice.
         """
-        c_node = tree.ffi.NULL
+        c_node = ffi.NULL
         step = 0
         slicelength = 0
         _assertValidNode(self)
@@ -1214,7 +1215,7 @@ class _Element(object):
         Creates a new element associated with the same document.
         """
         _assertValidDoc(self._doc)
-        return _makeElement(_tag, tree.ffi.NULL, self._doc, None, None, None,
+        return _makeElement(_tag, ffi.NULL, self._doc, None, None, None,
                             attrib, nsmap, _extra)
 
     def find(self, path, namespaces=None):
@@ -1300,7 +1301,7 @@ def _elementFactory(doc, c_node):
     result = NEW_ELEMENT(element_class)
     # prevent re-entry race condition - we just called into Python
     if hasProxy(c_node):
-        result._c_node = tree.ffi.NULL
+        result._c_node = ffi.NULL
         return getProxy(c_node)
 
     _registerProxy(result, doc, c_node)
@@ -2030,7 +2031,7 @@ def Element(_tag, attrib=None, nsmap=None, **_extra):
     `_BaseParser.makeelement()` methods, which provide a faster way to
     create an Element within a specific document or parser context.
     """
-    return _makeElement(_tag, tree.ffi.NULL, None, None, None, None,
+    return _makeElement(_tag, ffi.NULL, None, None, None, None,
                         attrib, nsmap, _extra)
 
 def Comment(text=None):
@@ -2046,7 +2047,7 @@ def Comment(text=None):
     c_doc = _newXMLDoc()
     doc = _documentFactory(c_doc, None)
     c_node = _createComment(c_doc, text)
-    tree.xmlAddChild(tree.ffi.cast("xmlNodePtr", c_doc), c_node)
+    tree.xmlAddChild(ffi.cast("xmlNodePtr", c_doc), c_node)
     return _elementFactory(doc, c_node)
 
 def ProcessingInstruction(target, text=None):
@@ -2063,7 +2064,7 @@ def ProcessingInstruction(target, text=None):
     c_doc = _newXMLDoc()
     doc = _documentFactory(c_doc, None)
     c_node = _createPI(c_doc, target, text)
-    tree.xmlAddChild(tree.ffi.cast("xmlNodePtr", c_doc), c_node)
+    tree.xmlAddChild(ffi.cast("xmlNodePtr", c_doc), c_node)
     return _elementFactory(doc, c_node)
 
 PI = ProcessingInstruction
@@ -2104,7 +2105,7 @@ def Entity(name):
     c_doc = _newXMLDoc()
     doc = _documentFactory(c_doc, None)
     c_node = _createEntity(c_doc, c_name)
-    tree.xmlAddChild(tree.ffi.cast("xmlNodePtr", c_doc), c_node)
+    tree.xmlAddChild(ffi.cast("xmlNodePtr", c_doc), c_node)
     return _elementFactory(doc, c_node)
 
 def SubElement(_parent, _tag,
@@ -2320,7 +2321,7 @@ class _Attrib(object):
         _assertValidNode(self._element)
         ns, tag = _getNsTag(key)
         c_node = self._element._c_node
-        c_href = tree.ffi.NULL if ns is None else ns
+        c_href = ffi.NULL if ns is None else ns
         return 1 if tree.xmlHasNsProp(c_node, tag, c_href) else 0
 
     def __cmp__(self, other):
@@ -2603,14 +2604,14 @@ class ElementDepthFirstIterator(object):
     def _nextNodeAnyTag(self, c_node):
         node_types = self._matcher._node_types
         if not node_types:
-            return tree.ffi.NULL
+            return ffi.NULL
         try:
             while True:
                 c_node = next(self.iterator)
                 if c_node.type in node_types:
                     return c_node
         except StopIteration:
-            return tree.ffi.NULL
+            return ffi.NULL
 
     def _nextNodeMatchTag(self, c_node):
         try:
@@ -2619,7 +2620,7 @@ class ElementDepthFirstIterator(object):
                 if self._matcher.matches(c_node):
                     return c_node
         except StopIteration:
-            return tree.ffi.NULL
+            return ffi.NULL
 
 
 class ElementTextIterator(object):
@@ -2656,7 +2657,7 @@ class ElementTextIterator(object):
     next = __next__
 
 def _createElement(c_doc, name_utf):
-    c_node = tree.xmlNewDocNode(c_doc, tree.ffi.NULL, name_utf, tree.ffi.NULL)
+    c_node = tree.xmlNewDocNode(c_doc, ffi.NULL, name_utf, ffi.NULL)
     return c_node
 
 def _createComment(c_doc, text):

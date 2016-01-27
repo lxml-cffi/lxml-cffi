@@ -1,6 +1,4 @@
-from .cffi_base import ffi
-
-ffi.cdef("""
+DEFS = """
     typedef struct _xmlSchematron xmlSchematron;
     typedef xmlSchematron *xmlSchematronPtr;
 
@@ -37,4 +35,4 @@ ffi.cdef("""
 					  xmlStructuredErrorFunc serror,
 					  void *ctx);
 
-""")
+"""

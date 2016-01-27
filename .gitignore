@@ -12,6 +12,7 @@ libs
 *.so
 *.o
 *.pyd
+.eggs
 
 src/lxml/includes/lxml-version.h
 src/lxml/*.html

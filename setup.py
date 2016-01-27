@@ -10,62 +10,35 @@ if sys.version_info < (2, 6) or sys.version_info[:2] in [(3, 0), (3, 1)]:
     print("This lxml version requires Python 2.6, 2.7, 3.2 or later.")
     sys.exit(1)
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+# When executing the setup.py, we need to be able to import ourselves, this
+# means that we need to add the src/ directory to the sys.path.
+base_dir = os.path.dirname(__file__)
+src_dir = os.path.join(base_dir, "src")
+sys.path.insert(0, src_dir)
+
+from setuptools import setup, find_packages
 
 import versioninfo
 import setupinfo
 import platform
-
-# override these and pass --static for a static build. See
-# doc/build.txt for more information. If you do not pass --static
-# changing this will have no effect.
-STATIC_INCLUDE_DIRS = []
-STATIC_LIBRARY_DIRS = []
-STATIC_CFLAGS = []
-STATIC_BINARIES = []
 
 # create lxml-version.h file
 svn_version = versioninfo.svn_version()
 versioninfo.create_version_h(svn_version)
 print("Building lxml version %s." % svn_version)
 
-OPTION_RUN_TESTS = setupinfo.has_option('run-tests')
-
 extra_options = {}
-extra_options['extras_require'] = {}
 if 'setuptools' in sys.modules:
     extra_options['zip_safe'] = False
-
-    try:
-        import pkg_resources
-    except ImportError:
-        pass
-    else:
-        f = open("requirements.txt", "r")
-        try:
-            deps = [str(req) for req in pkg_resources.parse_requirements(f)]
-        finally:
-            f.close()
-        extra_options['extras_require'] = {
-            'source': deps,
-            'cssselect': 'cssselect>=0.7',
-            'html5': 'html5lib',
-            'htmlsoup': 'BeautifulSoup4',
-        }
+    extra_options['extras_require'] = {
+        'cssselect': 'cssselect>=0.7',
+        'html5': 'html5lib',
+        'htmlsoup': 'BeautifulSoup4',
+    }
 
 extra_options.update(setupinfo.extra_setup_args())
 
 extra_options['package_data'] = {
-    'lxml': [
-        'lxml.etree.h',
-        'lxml.etree_api.h',
-    ],
-    'lxml.includes': [
-        '*.pxd', '*.h'
-        ],
     'lxml.isoschematron':  [
         'resources/rng/iso-schematron.rng',
         'resources/xsl/*.xsl',
@@ -78,84 +51,13 @@ extra_options['package_dir'] = {
         '': 'src'
     }
 
-extra_options['packages'] = [
-        'lxml', 'lxml.includes', 'lxml.html', 'lxml.isoschematron',
-        'lxml-cffi', 'lxml-cffi.includes',
-    ]
-
 
 def setup_extra_options():
-    is_interesting_package = re.compile('^(libxml|libxslt|libexslt)$').match
-    def extract_files(directories, pattern='*'):
-        def get_files(root, dir_path, files):
-            return [ (root, dir_path, filename)
-                     for filename in fnmatch.filter(files, pattern) ]
-
-        file_list = []
-        for dir_path in directories:
-            dir_path = os.path.realpath(dir_path)
-            for root, dirs, files in os.walk(dir_path):
-                rel_dir = root[len(dir_path)+1:]
-                if is_interesting_package(rel_dir):
-                    file_list.extend(get_files(root, rel_dir, files))
-        return file_list
-
-    def build_packages(files):
-        packages = {}
-        seen = set()
-        for root_path, rel_path, filename in files:
-            if filename in seen:
-                # libxml2/libxslt header filenames are unique
-                continue
-            seen.add(filename)
-            package_path = '.'.join(rel_path.split(os.sep))
-            if package_path in packages:
-                root, package_files = packages[package_path]
-                if root != root_path:
-                    print("conflicting directories found for include package '%s': %s and %s"
-                          % (package_path, root_path, root))
-                    continue
-            else:
-                package_files = []
-                packages[package_path] = (root_path, package_files)
-            package_files.append(filename)
-
-        return packages
-
     # Copy Global Extra Options
     extra_opts = dict(extra_options)
-
-    # Build ext modules
-    ext_modules = setupinfo.ext_modules(
-                    STATIC_INCLUDE_DIRS, STATIC_LIBRARY_DIRS,
-                    STATIC_CFLAGS, STATIC_BINARIES)
-    extra_opts['ext_modules'] = ext_modules
-    extra_opts['ext_package'] = 'lxml'
-
-    packages = extra_opts.get('packages', list())
-    package_dir = extra_opts.get('package_dir', dict())
-    package_data = extra_opts.get('package_data', dict())
-
-    # Add lxml.include with (lxml, libxslt headers...)
-    #   python setup.py build --static --static-deps install
-    #   python setup.py bdist_wininst --static
-    if setupinfo.OPTION_STATIC:
-        include_dirs = [] # keep them in order
-        for extension in ext_modules:
-            for inc_dir in extension.include_dirs:
-                if inc_dir not in include_dirs:
-                    include_dirs.append(inc_dir)
-
-        header_packages = build_packages(extract_files(include_dirs))
-
-        for package_path, (root_path, filenames) in header_packages.items():
-            if package_path:
-                package = 'lxml.includes.' + package_path
-                packages.append(package)
-            else:
-                package = 'lxml.includes'
-            package_data[package] = filenames
-            package_dir[package] = root_path
+    extra_opts['packages'] = find_packages(
+        where='src', exclude=['_cffi_src', '_cffi_src.*']) + [
+            'lxml-cffi', 'lxml-cffi.includes']
 
     extra_opts['extras_require'][":platform_python_implementation != 'PyPy'"] = ["cffi>=1.4.1"]
     if platform.python_implementation() == 'PyPy':
@@ -163,6 +65,7 @@ def setup_extra_options():
             raise RuntimeError("Please upgrade to at least PyPy 2.6")
     else:
         extra_opts['setup_requires'] = ['cffi>=1.4.1']
+    extra_opts['cffi_modules'] = ['src/_cffi_src/build_libxml.py:ffi']
     return extra_opts
 
 setup(
@@ -199,8 +102,3 @@ works more reliably.
     ],
     **setup_extra_options()
 )
-
-if OPTION_RUN_TESTS:
-    print("Running tests.")
-    import test
-    sys.exit( test.main(sys.argv[:1]) )

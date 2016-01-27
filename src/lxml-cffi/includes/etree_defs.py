@@ -1,11 +1,11 @@
-from . import tree
+from .._libxml2 import ffi, lib as tree
 
 def _isString(obj):
     return isinstance(obj, basestring)
 
 def _getNs(c_node):
     if not c_node.ns:
-        return tree.ffi.NULL
+        return ffi.NULL
     else:
         return c_node.ns.href
 
@@ -20,7 +20,6 @@ def _isElementOrXInclude(c_node):
     return _isElement(c_node) or c_node.type in (
         tree.XML_XINCLUDE_START,
         tree.XML_XINCLUDE_END)
-tree._isElementOrXInclude = _isElementOrXInclude
 
 def ELEMENT_MATCH(c_node, only_elements):
     if only_elements:
@@ -43,7 +42,7 @@ class ForEachFrom(object):
         elif not ELEMENT_MATCH(c_node, only_elements):
             # we skip the node, so 'inclusive' is irrelevant
             if c_node == c_tree_top:
-                self.c_node = tree.ffi.NULL  # Nothing to traverse
+                self.c_node = ffi.NULL  # Nothing to traverse
             else:
                 c_node = c_node.next
                 self.c_node = ADVANCE_TO_NEXT(c_node, only_elements)
@@ -74,7 +73,7 @@ class ForEachFrom(object):
         if c_next:
             if (c_node.type == tree.XML_ENTITY_REF_NODE or
                 c_node.type == tree.XML_DTD_NODE):
-                c_next = tree.ffi.NULL
+                c_next = ffi.NULL
             else:
                 c_next = ADVANCE_TO_NEXT(c_next, self.only_elements)
         if not c_next and c_node != self.c_tree_top:

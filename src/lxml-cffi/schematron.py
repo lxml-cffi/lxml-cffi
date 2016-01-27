@@ -1,6 +1,4 @@
 # support for Schematron validation
-from .includes import schematron
-from .includes import tree
 from . import config
 from .etree import _Validator, _LIBXML_VERSION_INT
 from .apihelpers import _documentOrRaise, _rootNodeOrRaise
@@ -8,6 +6,8 @@ from .parser import _copyDocRoot
 from .etree import LxmlError
 from .xmlerror import _receiveError
 from .proxy import _fakeRootDoc, _destroyFakeDoc
+from ._libxml2 import ffi, lib
+schematron = tree = lib
 
 class SchematronError(LxmlError):
     u"""Base class of all Schematron errors.
@@ -77,8 +77,8 @@ class Schematron(_Validator):
     errors in lxml.
     """
     def __init__(self, etree=None, file=None):
-        self._c_schema = schematron.ffi.NULL
-        self._c_schema_doc = tree.ffi.NULL
+        self._c_schema = ffi.NULL
+        self._c_schema_doc = ffi.NULL
         _Validator.__init__(self)
         if not config.ENABLE_SCHEMATRON:
             raise SchematronError, \
@@ -102,7 +102,7 @@ class Schematron(_Validator):
         if not parser_ctxt:
             if self._c_schema_doc:
                 tree.xmlFreeDoc(self._c_schema_doc)
-                self._c_schema_doc = tree.ffi.NULL
+                self._c_schema_doc = ffi.NULL
             raise MemoryError()
 
         try:

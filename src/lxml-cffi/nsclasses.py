@@ -4,7 +4,7 @@ from .classlookup import FallbackElementClassLookup, ElementBase
 from .classlookup import _callLookupFallback
 from .apihelpers import _utf8, _getNs
 from . import python
-from .includes import tree
+from ._libxml2 import ffi, lib as tree
 
 class _NamespaceRegistry(object):
     u"Dictionary-like namespace registry"
@@ -12,7 +12,7 @@ class _NamespaceRegistry(object):
         self._ns_uri = ns_uri
         if ns_uri is None:
             self._ns_uri_utf = None
-            self._c_ns_uri_utf = tree.ffi.NULL
+            self._c_ns_uri_utf = ffi.NULL
         else:
             self._ns_uri_utf = _utf8(ns_uri)
             self._c_ns_uri_utf = self._ns_uri_utf
@@ -119,7 +119,7 @@ def _find_nselement_class(state, doc, c_node):
     c_namespace_utf = _getNs(c_node)
     if c_namespace_utf:
         dict_result = lookup._namespace_registries.get(
-            tree.ffi.string(c_namespace_utf), None)
+            ffi.string(c_namespace_utf), None)
     else:
         dict_result = lookup._namespace_registries.get(None)
     if dict_result:
@@ -127,9 +127,9 @@ def _find_nselement_class(state, doc, c_node):
         classes = registry._entries
 
         if c_node.name:
-            dict_result = classes.get(tree.ffi.string(c_node.name), None)
+            dict_result = classes.get(ffi.string(c_node.name), None)
         else:
-            dict_result = NULL
+            dict_result = ffi.NULL
 
         if not dict_result:
             dict_result = classes.get(None)

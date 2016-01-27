@@ -2,7 +2,7 @@ from .xpath import XPath
 from .etree import XML, _elementFactory, _elementTreeFactory
 from .apihelpers import _documentOrRaise, _utf8, funicode
 from .parser import _parseDocument
-from .includes import tree
+from ._libxml2 import ffi, lib as tree
 
 _find_id_attributes = None
 
@@ -122,31 +122,31 @@ class _IDDict(object):
 
     def _build_keys(self):
         keys = []
-        handle = tree.ffi.new_handle(keys)
+        handle = ffi.new_handle(keys)
         tree.xmlHashScan(self._doc._c_doc.ids, _collectIdHashKeys, handle)
         return keys
 
     def _build_items(self):
         items = []
         context = (items, self._doc)
-        handle = tree.ffi.new_handle(context)
+        handle = ffi.new_handle(context)
         tree.xmlHashScan(self._doc._c_doc.ids, _collectIdHashItemList, handle)
         return items
 
-@tree.ffi.callback("xmlHashScanner")
+@ffi.callback("xmlHashScanner")
 def _collectIdHashItemList(payload, context, name):
     # collect elements from ID attribute hash table
-    c_id = tree.ffi.cast("xmlIDPtr", payload)
+    c_id = ffi.cast("xmlIDPtr", payload)
     if not c_id or not c_id.attr or not c_id.attr.parent:
         return
-    lst, doc = tree.ffi.from_handle(context)
+    lst, doc = ffi.from_handle(context)
     element = _elementFactory(doc, c_id.attr.parent)
     lst.append( (funicode(name), element) )
 
-@tree.ffi.callback("xmlHashScanner")
+@ffi.callback("xmlHashScanner")
 def _collectIdHashKeys(payload, context, name):
-    c_id = tree.ffi.cast("xmlIDPtr", payload)
+    c_id = ffi.cast("xmlIDPtr", payload)
     if not c_id or not c_id.attr or not c_id.attr.parent:
         return
-    collect_list = tree.ffi.from_handle(context)
+    collect_list = ffi.from_handle(context)
     collect_list.append(funicode(name))

@@ -1,6 +1,4 @@
-from .cffi_base import ffi
-
-ffi.cdef("""
+DEFS = """
     #define XML_PARSE_RECOVER ...  // recover on errors
     #define XML_PARSE_NOENT ...  // substitute entities
     #define XML_PARSE_DTDLOAD ...  // load the external subset
@@ -29,13 +27,13 @@ ffi.cdef("""
 
     // Init / Cleanup
 
-    void            xmlInitParser		(void);
-    void            xmlCleanupParser	(void);
+    void            xmlInitParser               (void);
+    void            xmlCleanupParser    (void);
 
     // Dict
 
-    xmlDictPtr xmlDictCreate	(void);
-    xmlDictPtr 		xmlDictCreateSub(xmlDictPtr sub);
+    xmlDictPtr xmlDictCreate    (void);
+    xmlDictPtr          xmlDictCreateSub(xmlDictPtr sub);
     void xmlDictFree(xmlDictPtr dict);
     int xmlDictReference(xmlDictPtr dict);
 
@@ -56,7 +54,7 @@ ffi.cdef("""
     };
 
     void xmlSAX2StartDocument(void* ctxt);
-    xmlParserInputBufferPtr xmlAllocParserInputBuffer		(xmlCharEncoding enc);
+    xmlParserInputBufferPtr xmlAllocParserInputBuffer           (xmlCharEncoding enc);
 
     // Parser Context
 
@@ -64,25 +62,25 @@ ffi.cdef("""
     typedef xmlParserCtxt *xmlParserCtxtPtr;
 
     xmlParserCtxtPtr xmlNewParserCtxt();
-    void 	xmlFreeParserCtxt	(xmlParserCtxtPtr ctxt);
+    void        xmlFreeParserCtxt       (xmlParserCtxtPtr ctxt);
     void xmlClearParserCtxt(xmlParserCtxtPtr ctxt);
-    int 	xmlCtxtUseOptions	(xmlParserCtxtPtr ctxt,
-					 int options);
-    int 	xmlCtxtResetPush	(xmlParserCtxtPtr ctxt,
-					 const char *chunk,
-					 int size,
-					 const char *filename,
-					 const char *encoding);
-    xmlDocPtr 	xmlCtxtReadFile		(xmlParserCtxtPtr ctxt,
-					 const char *filename,
-					 const char *encoding,
-					 int options);
+    int         xmlCtxtUseOptions       (xmlParserCtxtPtr ctxt,
+                                         int options);
+    int         xmlCtxtResetPush        (xmlParserCtxtPtr ctxt,
+                                         const char *chunk,
+                                         int size,
+                                         const char *filename,
+                                         const char *encoding);
+    xmlDocPtr   xmlCtxtReadFile         (xmlParserCtxtPtr ctxt,
+                                         const char *filename,
+                                         const char *encoding,
+                                         int options);
     xmlDocPtr xmlCtxtReadMemory(xmlParserCtxtPtr ctxt,
-			        const char *buffer,
-				int size,
-				const char *URL,
-				const char *encoding,
-				int options);
+                                const char *buffer,
+                                int size,
+                                const char *URL,
+                                const char *encoding,
+                                int options);
 
     struct _xmlParserCtxt {
         struct _xmlSAXHandler *sax;       /* The SAX handler */
@@ -130,21 +128,21 @@ ffi.cdef("""
     typedef xmlSAXHandler *xmlSAXHandlerPtr;
 
     xmlParserCtxtPtr xmlCreatePushParserCtxt(xmlSAXHandlerPtr sax,
-					 void *user_data,
-					 const char *chunk,
-					 int size,
-					 const char *filename);
-    int 	xmlParseChunk		(xmlParserCtxtPtr ctxt,
-					 const char *chunk,
-					 int size,
-					 int terminate);
-    xmlDocPtr 	xmlCtxtReadIO		(xmlParserCtxtPtr ctxt,
-					 xmlInputReadCallback ioread,
-					 xmlInputCloseCallback ioclose,
-					 void *ioctx,
-					 const char *URL,
-					 const char *encoding,
-					 int options);
+                                         void *user_data,
+                                         const char *chunk,
+                                         int size,
+                                         const char *filename);
+    int         xmlParseChunk           (xmlParserCtxtPtr ctxt,
+                                         const char *chunk,
+                                         int size,
+                                         int terminate);
+    xmlDocPtr   xmlCtxtReadIO           (xmlParserCtxtPtr ctxt,
+                                         xmlInputReadCallback ioread,
+                                         xmlInputCloseCallback ioclose,
+                                         void *ioctx,
+                                         const char *URL,
+                                         const char *encoding,
+                                         int options);
 
 
     #define XML_SAX2_MAGIC ...
@@ -218,19 +216,19 @@ ffi.cdef("""
     typedef xmlParserInputPtr (*xmlExternalEntityLoader) (const char *URL,
                                              const char *ID,
                                              xmlParserCtxtPtr context);
-    void 	xmlSetExternalEntityLoader(xmlExternalEntityLoader f);
+    void        xmlSetExternalEntityLoader(xmlExternalEntityLoader f);
     xmlExternalEntityLoader xmlGetExternalEntityLoader(void);
 
-    xmlParserInputPtr 	xmlNewInputStream	(xmlParserCtxtPtr ctxt);
-    xmlParserInputPtr xmlNewIOInputStream	(xmlParserCtxtPtr ctxt,
-					 xmlParserInputBufferPtr input,
-					 xmlCharEncoding enc);
-    xmlParserInputPtr 	xmlNewInputFromFile	(xmlParserCtxtPtr ctxt,
-						 const char *filename);
+    xmlParserInputPtr   xmlNewInputStream       (xmlParserCtxtPtr ctxt);
+    xmlParserInputPtr xmlNewIOInputStream       (xmlParserCtxtPtr ctxt,
+                                         xmlParserInputBufferPtr input,
+                                         xmlCharEncoding enc);
+    xmlParserInputPtr   xmlNewInputFromFile     (xmlParserCtxtPtr ctxt,
+                                                 const char *filename);
 
-    xmlDtdPtr 	xmlParseDTD		(const xmlChar *ExternalID,
-					 const xmlChar *SystemID);
-    xmlDtdPtr 	xmlIOParseDTD		(xmlSAXHandlerPtr sax,
-					 xmlParserInputBufferPtr input,
-					 xmlCharEncoding enc);
-""")
+    xmlDtdPtr   xmlParseDTD             (const xmlChar *ExternalID,
+                                         const xmlChar *SystemID);
+    xmlDtdPtr   xmlIOParseDTD           (xmlSAXHandlerPtr sax,
+                                         xmlParserInputBufferPtr input,
+                                         xmlCharEncoding enc);
+"""

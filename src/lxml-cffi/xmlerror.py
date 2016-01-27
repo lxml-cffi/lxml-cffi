@@ -1,12 +1,10 @@
 import threading
 import re
-import cffi
 
 from .etree import __MAX_LOG_SIZE
 from .apihelpers import _decodeFilename, _isFilePath
-from .includes import xmlerror, tree
-from .includes import libxml as helpers
-from . import python
+from ._libxml2 import ffi, lib
+xmlerror = tree = helpers = xslt = lib
 
 # module level API functions
 
@@ -30,16 +28,15 @@ pyXsltGenericErrorFunc = helpers.pyXsltGenericErrorFunc
 def _initThreadLogging():
     # disable generic error lines from libxml2
     xmlerror.xmlSetGenericErrorFunc(
-        xmlerror.ffi.NULL, helpers.nullGenericErrorFunc)
+        ffi.NULL, helpers.nullGenericErrorFunc)
 
     # divert error messages to the global error log
     connectErrorLog(None)
 
 def connectErrorLog(log):
-    from .includes import xslt
     helpers.setPyXsltErrorFunc(_receiveError)
     if log is None:
-        handle = xmlerror.ffi.NULL
+        handle = ffi.NULL
     else:
         handle = log.get_handle()
     xslt.xsltSetGenericErrorFunc(handle, pyXsltGenericErrorFunc)
@@ -70,8 +67,8 @@ class _LogEntry(object):
         self.level    = error.level
         self.line     = error.line
         self.column   = error.int2
-        self._c_message = tree.ffi.NULL
-        self._c_filename = tree.ffi.NULL
+        self._c_message = ffi.NULL
+        self._c_filename = ffi.NULL
         if not error.message or error.message[0] in b'\n\0':
             self._message = u"unknown error"
         else:
@@ -95,8 +92,8 @@ class _LogEntry(object):
         self.column  = 0
         self._message = message
         self._filename = filename
-        self._c_message = tree.ffi.NULL
-        self._c_filename = tree.ffi.NULL
+        self._c_message = ffi.NULL
+        self._c_filename = ffi.NULL
 
     def __repr__(self):
         return u"%s:%d:%d:%s:%s:%s: %s" % (
@@ -131,7 +128,7 @@ class _LogEntry(object):
             return self._message
         if not self._c_message:
             return None
-        message = tree.ffi.string(self._c_message)
+        message = ffi.string(self._c_message)
         message = message.rstrip('\n')
         # cannot use funicode() here because the message may contain
         # byte encoded file paths etc.
@@ -148,7 +145,7 @@ class _LogEntry(object):
         if self._c_message:
             # clean up early
             tree.xmlFree(self._c_message)
-            self._c_message = tree.ffi.NULL
+            self._c_message = ffi.NULL
         return self._message
 
     @property
@@ -158,7 +155,7 @@ class _LogEntry(object):
                 self._filename = _decodeFilename(self._c_filename)
                 # clean up early
                 tree.xmlFree(self._c_filename)
-                self._c_filename = tree.ffi.NULL
+                self._c_filename = ffi.NULL
         return self._filename        
 
 
@@ -171,7 +168,7 @@ class _BaseErrorLog(object):
 
     def get_handle(self):
         if self._handle is None:
-            self._handle = xmlerror.ffi.new_handle(self)
+            self._handle = ffi.new_handle(self)
         return self._handle
 
     def receive(self, entry):
@@ -421,10 +418,10 @@ def _copyGlobalErrorLog():
 
 # local log functions: forward error to logger object
 def _forwardError(c_log_handler, error):
-    log_handler = xmlerror.ffi.from_handle(c_log_handler)
+    log_handler = ffi.from_handle(c_log_handler)
     log_handler._receive(error)
 
-@xmlerror.ffi.callback("xmlStructuredErrorFunc")
+@ffi.callback("xmlStructuredErrorFunc")
 def _receiveError(c_log_handler, error):
     # no Python objects here, may be called without thread context !
     _forwardError(c_log_handler, error)
@@ -453,23 +450,23 @@ class ErrorLevels(BaseErrorEnum):
     u"Libxml2 error levels"
     elements = dict(
         (value, name[8:])  # Strip "XML_ERR_" prefix
-        for (value, name) in xmlerror.ffi.typeof("xmlErrorLevel").elements.items())
+        for (value, name) in ffi.typeof("xmlErrorLevel").elements.items())
 
 class ErrorDomains(BaseErrorEnum):
     u"Libxml2 error domains"
     elements = dict(
         (value, name[9:])  # Strip "XML_FROM_" prefix
-        for (value, name) in xmlerror.ffi.typeof("xmlErrorDomain").elements.items())
+        for (value, name) in ffi.typeof("xmlErrorDomain").elements.items())
 
 class ErrorTypes(BaseErrorEnum):
     u"Libxml2 error types"
     elements = dict(
         (value, name[4:])  # Strip "XML_" prefix
-        for (value, name) in xmlerror.ffi.typeof("xmlParserErrors").elements.items())
+        for (value, name) in ffi.typeof("xmlParserErrors").elements.items())
 
 class RelaxNGErrorTypes(BaseErrorEnum):
     u"Libxml2 RelaxNG error types"
     elements = dict(
         (value, name[4:])  # Strip "XML_" prefix
-        for (value, name) in xmlerror.ffi.typeof("xmlRelaxNGValidErr").elements.items())
+        for (value, name) in ffi.typeof("xmlRelaxNGValidErr").elements.items())
 

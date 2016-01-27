@@ -5,7 +5,6 @@ import re
 
 from .xmlerror import _ErrorLog
 from . import config
-from .includes import tree, xmlerror
 from .etree import _LIBXML_VERSION_INT, LxmlSyntaxError
 from .extensions import _BaseContext, _xpath_function_call
 from .extensions import XPathError, XPathEvalError
@@ -13,10 +12,10 @@ from .extensions import _wrapXPathObject, _unwrapXPathObject, _freeXPathObject
 from .apihelpers import _utf8, _documentOrRaise, _rootNodeOrRaise
 from .apihelpers import _assertValidNode, _assertValidDoc
 from .xslt import LIBXSLT_VERSION
-from .includes import xslt
-from .includes import ffi, xpath
 from .proxy import _fakeRootDoc, _destroyFakeDoc
 from . import python
+from ._libxml2 import ffi, lib
+tree = xmlerror = xslt = xpath = lib
 
 class XPathSyntaxError(LxmlSyntaxError, XPathError):
     pass
@@ -60,7 +59,7 @@ def _unregister_xpath_function(ctxt, name_utf, ns_utf):
         return xpath.xmlXPathRegisterFuncNS(
             ctxt, name_utf, ns_utf, ffi.NULL)
 
-@tree.ffi.callback("xmlHashScanner")
+@ffi.callback("xmlHashScanner")
 def _registerExsltFunctionsForNamespaces(_c_href, _ctxt, c_prefix):
     c_href = ffi.string(ffi.cast("const xmlChar*", _c_href))
     ctxt = ffi.cast("xmlXPathContextPtr", _ctxt)

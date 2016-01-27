@@ -1,9 +1,7 @@
-from .includes import tree
-from .includes.etree_defs import FOR_EACH_ELEMENT_FROM, FOR_EACH_FROM
-from .includes import ffi
+from .includes.etree_defs import FOR_EACH_ELEMENT_FROM, FOR_EACH_FROM, _isElementOrXInclude
 from .parser import _copyDoc
-
 from .apihelpers import _removeText
+from ._libxml2 import ffi, lib as tree
 
 _ALL_PROXIES = set()
 
@@ -55,7 +53,7 @@ def _unregisterProxy(proxy):
 
 def detachProxy(proxy):
     _unregisterProxy(proxy)
-    proxy._c_node = tree.ffi.NULL
+    proxy._c_node = ffi.NULL
 
 ################################################################################
 # temporarily make a node the root node of its document
@@ -80,7 +78,7 @@ def _plainFakeRootDoc(c_base_doc, c_node, with_siblings):
 
     c_new_root.children = c_node.children
     c_new_root.last = c_node.last
-    c_new_root.next = c_new_root.prev = tree.ffi.NULL
+    c_new_root.next = c_new_root.prev = ffi.NULL
 
     # store original node
     c_doc._private = c_node
@@ -101,14 +99,14 @@ def _destroyFakeDoc(c_base_doc, c_doc):
     c_root = tree.xmlDocGetRootElement(c_doc)
 
     # restore parent pointers of children
-    c_parent = tree.ffi.cast("xmlNodePtr", c_doc._private)
+    c_parent = ffi.cast("xmlNodePtr", c_doc._private)
     c_child = c_root.children
     while c_child:
         c_child.parent = c_parent
         c_child = c_child.next
 
     # prevent recursive removal of children
-    c_root.children = c_root.last = tree.ffi.NULL
+    c_root.children = c_root.last = ffi.NULL
     tree.xmlFreeDoc(c_doc)
 
 def _fakeDocElementFactory(doc, c_element):
@@ -124,7 +122,7 @@ def _fakeDocElementFactory(doc, c_element):
     if c_element.doc != doc._c_doc:
         if c_element.doc._private:
             if c_element == c_element.doc.children:
-                c_element = tree.ffi.cast("xmlNodePtr", c_element.doc._private)
+                c_element = ffi.cast("xmlNodePtr", c_element.doc._private)
                 #assert c_element.type == tree.XML_ELEMENT_NODE
     return _elementFactory(doc, c_element)
 
@@ -168,7 +166,7 @@ def getDeallocationTop(c_node):
     if canDeallocateChildNodes(c_node):
         return c_node
     else:
-        return tree.ffi.NULL
+        return ffi.NULL
 
 def canDeallocateChildNodes(c_parent):
     c_node = c_parent.children
@@ -184,7 +182,7 @@ def _copyParentNamespaces(c_from_node, c_to_node):
     u"""Copy the namespaces of all ancestors of c_from_node to c_to_node.
     """
     c_parent = c_from_node.parent
-    while c_parent and (tree._isElementOrXInclude(c_parent) or
+    while c_parent and (_isElementOrXInclude(c_parent) or
                         c_parent.type == tree.XML_DOCUMENT_NODE):
         c_new_ns = c_parent.nsDef
         while c_new_ns:
@@ -207,14 +205,14 @@ def _stripRedundantNamespaceDeclarations(c_element, c_ns_cache, c_del_ns_list):
     them to the c_del_ns_list.
     """
     # use a xmlNs** to handle assignments to "c_element.nsDef" correctly
-    c_nsdef = tree.ffi.addressof(c_element, 'nsDef')
+    c_nsdef = ffi.addressof(c_element, 'nsDef')
     while c_nsdef[0]:
         c_ns = tree.xmlSearchNsByHref(
             c_element.doc, c_element.parent, c_nsdef[0].href)
         if not c_ns:
             # new namespace href => keep and cache the ns declaration
             _appendToNsCache(c_ns_cache, c_nsdef[0], c_nsdef[0])
-            c_nsdef = tree.ffi.addressof(c_nsdef[0], 'next')
+            c_nsdef = ffi.addressof(c_nsdef[0], 'next')
         else:
             # known namespace href => cache mapping and strip old ns
             _appendToNsCache(c_ns_cache, c_nsdef[0], c_ns)
@@ -257,18 +255,18 @@ def moveNodeToDocument(doc, c_source_doc, c_element):
     """
     proxy_count = 0
 
-    if not tree._isElementOrXInclude(c_element):
+    if not _isElementOrXInclude(c_element):
         return 0
 
     c_start_node = c_element
-    c_del_ns_list = tree.ffi.NULL
+    c_del_ns_list = ffi.NULL
 
     c_ns_cache = _nscache()
     c_ns_cache.new = []
     c_ns_cache.old = []
 
     for c_element in FOR_EACH_FROM(c_element, c_element, 1):
-        if tree._isElementOrXInclude(c_element):
+        if _isElementOrXInclude(c_element):
             if hasProxy(c_element):
                 proxy_count += 1
 
@@ -297,7 +295,7 @@ def moveNodeToDocument(doc, c_source_doc, c_element):
                     if not c_ns:
                         # not in cache or not acceptable
                         # => find a replacement from this document
-                        c_href = tree.ffi.string(c_node.ns.href)
+                        c_href = ffi.string(c_node.ns.href)
                         c_ns = doc._findOrBuildNodeNs(
                             c_start_node, c_href, c_node.ns.prefix,
                             c_node.type == tree.XML_ATTRIBUTE_NODE)
@@ -353,7 +351,7 @@ def fixThreadDictNames(c_element, c_src_dict, c_dict):
         while c_element:
             fixThreadDictNamesForNode(c_element, c_src_dict, c_dict)
             c_element = c_element.next
-    elif tree._isElementOrXInclude(c_element):
+    elif _isElementOrXInclude(c_element):
         fixThreadDictNamesForNode(c_element, c_src_dict, c_dict)
 
 def fixThreadDictNamesForNode(c_element, c_src_dict, c_dict):
@@ -391,7 +389,7 @@ def fixThreadDictNameForNode(c_node, c_src_dict, c_dict):
 
 def fixThreadDictContentForNode(c_node, c_src_dict, c_dict):
     if (c_node.content and
-        c_node.content != tree.ffi.addressof(c_node, 'properties')):
+        c_node.content != ffi.addressof(c_node, 'properties')):
         if tree.xmlDictOwns(c_src_dict, c_node.content):
             # result can be NULL on memory error, but we don't handle that here
             c_node.content = tree.xmlDictLookup(c_dict, c_node.content, -1)

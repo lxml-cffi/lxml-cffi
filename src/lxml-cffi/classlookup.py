@@ -1,6 +1,5 @@
 # Configurable Element class lookup
 
-from .includes import tree
 from .etree import _Comment, _Element, _ProcessingInstruction, _Entity
 from .etree import _documentFactory
 from .apihelpers import _getNs, _getNsTag, funicode, _utf8, _isString
@@ -9,6 +8,7 @@ from .apihelpers import _appendChild, _setTailText, _collectText
 from .apihelpers import _setNodeText
 from .parser import HTMLParser, _newXMLDoc
 from .proxy import _registerProxy
+from ._libxml2 import ffi, lib as tree
 
 
 ################################################################################
@@ -126,7 +126,7 @@ class CommentBase(_Comment):
         c_doc = _newXMLDoc()
         doc = _documentFactory(c_doc, None)
         self._c_node = _createComment(c_doc, text)
-        tree.xmlAddChild(tree.ffi.cast("xmlNodePtr", c_doc), self._c_node)
+        tree.xmlAddChild(ffi.cast("xmlNodePtr", c_doc), self._c_node)
         _registerProxy(self, doc, self._c_node)
         self._init()
 
@@ -154,7 +154,7 @@ class PIBase(_ProcessingInstruction):
         c_doc = _newXMLDoc()
         doc = _documentFactory(c_doc, None)
         self._c_node = _createPI(c_doc, target, text)
-        tree.xmlAddChild(tree.ffi.cast("xmlNodePtr", c_doc), self._c_node)
+        tree.xmlAddChild(ffi.cast("xmlNodePtr", c_doc), self._c_node)
         _registerProxy(self, doc, self._c_node)
         self._init()
 
@@ -354,7 +354,7 @@ class AttributeBasedElementClassLookup(FallbackElementClassLookup):
         self._pytag = _getNsTag(attribute_name)
         ns, name = self._pytag
         if ns is None:
-            self._c_ns = tree.ffi.NULL
+            self._c_ns = ffi.NULL
         else:
             self._c_ns = ns
         self._c_name = name
@@ -519,7 +519,7 @@ def set_element_class_lookup(lookup = None):
     Set the global default element class lookup method.
     """
     if lookup is None or not lookup._lookup_function:
-        _setElementClassLookupFunction(tree.ffi.NULL, None)
+        _setElementClassLookupFunction(ffi.NULL, None)
     else:
         _setElementClassLookupFunction(lookup._lookup_function, lookup)
 

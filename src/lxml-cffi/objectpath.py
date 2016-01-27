@@ -5,9 +5,9 @@ import re
 
 from . import python
 from . import cetree
-from .includes import tree
 from .apihelpers import _getNs, _tagMatches
 from .objectify import _findFollowingSibling, _appendValue, _replaceElement
+from ._libxml2 import ffi, lib as tree
 
 class _ObjectPath(object):
     pass
@@ -151,8 +151,8 @@ def _buildObjectPathSegments(path_list):
     c_path_segments = []
     for href, name, index in path_list:
         c_path = _ObjectPath()
-        c_path.href = tree.ffi.new("xmlChar[]", href) if href else tree.ffi.NULL
-        c_path.name = tree.ffi.new("xmlChar[]", name) if name else tree.ffi.NULL
+        c_path.href = ffi.new("xmlChar[]", href) if href else ffi.NULL
+        c_path.name = ffi.new("xmlChar[]", name) if name else ffi.NULL
         c_path.index = index
         c_path_segments.append(c_path)
     return c_path_segments
@@ -182,7 +182,7 @@ def _findObjectPath(root, c_path, default_value, use_default):
         c_name = tree.xmlDictExists(c_node.doc.dict, c_path_item.name, -1)
         if not c_name:
             c_name = c_path_item.name
-            c_node = tree.ffi.NULL
+            c_node = ffi.NULL
             break
         c_index = c_path_item.index
         c_node = c_node.last if c_index < 0 else c_node.children
@@ -221,7 +221,7 @@ def _createObjectPath(root, c_path, replace, value):
         c_name = tree.xmlDictExists(c_node.doc.dict, c_path_item.name, -1)
         if not c_name:
             c_name = c_path_item.name
-            c_child = tree.ffi.NULL
+            c_child = ffi.NULL
         else:
             c_child = c_node.last if c_index < 0 else c_node.children
             c_child = _findFollowingSibling(c_child, c_href, c_name, c_index)
@@ -280,10 +280,10 @@ def _recursiveBuildDescendantPaths(c_node, path, path_list):
             if not c_child:
                 return
         if c_href == cetree._getNs(c_child):
-            tag = tree.ffi.string(c_child.name)
+            tag = ffi.string(c_child.name)
         elif c_href and not cetree._getNs(c_child):
             # special case: parent has namespace, child does not
-            tag = u'{}' + tree.ffi.string(c_child.name)
+            tag = u'{}' + ffi.string(c_child.name)
         else:
             tag = cetree.namespacedName(c_child)
         count = tags.get(tag, -1) + 1

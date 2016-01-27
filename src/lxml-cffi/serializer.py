@@ -7,14 +7,13 @@ from .proxy import _fakeRootDoc, _destroyFakeDoc, _plainFakeRootDoc, _copyParent
 from .includes.etree_defs import _isElement, _isString
 from .etree import _ExceptionContext, LxmlError, LxmlSyntaxError
 from .xmlerror import _ErrorLog, ErrorTypes
-from .includes import xmlerror
 from .apihelpers import _assertValidNode, _assertValidDoc, _textNodeOrSkip
 from .apihelpers import _encodeFilename, _documentOrRaise, _getNsTag
 from .apihelpers import _prefixValidOrRaise
 from .apihelpers import _utf8, isutf8, _utf8orNone
-from .includes import tree
-from .includes import c14n
 from . import python
+from ._libxml2 import ffi, lib
+xmlerror = tree = c14n = lib
 
 class SerialisationError(LxmlError):
     u"""A libxml2 error that occurred during serialisation.
@@ -68,13 +67,13 @@ def _textToString(c_node, encoding, with_tail):
                     needs_conversion = 1
 
         if needs_conversion:
-            text = tree.ffi.buffer(
+            text = ffi.buffer(
                 c_text, tree.xmlBufferLength(c_buffer))[:].decode('utf8')
             if encoding is not unicode:
                 encoding = _utf8(encoding)
                 text = text.encode(encoding)
         else:
-            text = tree.ffi.buffer(
+            text = ffi.buffer(
                 c_text, tree.xmlBufferLength(c_buffer))[:]
     finally:
         tree.xmlBufferFree(c_buffer)
@@ -94,12 +93,12 @@ def _tostring(element, encoding, doctype, method,
     if c_method == OUTPUT_METHOD_TEXT:
         return _textToString(element._c_node, encoding, with_tail)
     if encoding is None or encoding is unicode:
-        c_enc = tree.ffi.NULL
+        c_enc = ffi.NULL
     else:
         encoding = _utf8(encoding)
         c_enc = encoding
     if doctype is None:
-        c_doctype = tree.ffi.NULL
+        c_doctype = ffi.NULL
     else:
         doctype = _utf8(doctype)
         c_doctype = doctype
@@ -132,11 +131,11 @@ def _tostring(element, encoding, doctype, method,
 
     try:
         if encoding is unicode:
-            result = tree.ffi.buffer(
+            result = ffi.buffer(
                 tree.xmlBufferContent(c_result_buffer),
                 tree.xmlBufferLength(c_result_buffer))[:].decode('UTF-8')
         else:
-            result = tree.ffi.buffer(
+            result = ffi.buffer(
                 tree.xmlBufferContent(c_result_buffer),
                 tree.xmlBufferLength(c_result_buffer))[:]
     finally:
@@ -147,7 +146,7 @@ def _tostring(element, encoding, doctype, method,
 
 def _tostringC14N(element_or_tree, exclusive, with_comments, inclusive_ns_prefixes):
     from .etree import _Element
-    c_buffer = tree.ffi.NULL
+    c_buffer = ffi.NULL
     byte_count = -1
     if isinstance(element_or_tree, _Element):
         _assertValidNode(element_or_tree)
@@ -158,12 +157,12 @@ def _tostringC14N(element_or_tree, exclusive, with_comments, inclusive_ns_prefix
         _assertValidDoc(doc)
         c_doc = doc._c_doc
 
-    c_inclusive_ns_prefixes = _convert_ns_prefixes(c_doc.dict, inclusive_ns_prefixes) if inclusive_ns_prefixes else c14n.ffi.NULL
+    c_inclusive_ns_prefixes = _convert_ns_prefixes(c_doc.dict, inclusive_ns_prefixes) if inclusive_ns_prefixes else ffi.NULL
     try:
          if 1:
-             c_buffer_ptr = c14n.ffi.new("xmlChar*[]", [c_buffer])
+             c_buffer_ptr = ffi.new("xmlChar*[]", [c_buffer])
              byte_count = c14n.xmlC14NDocDumpMemory(
-                 c_doc, tree.ffi.NULL, exclusive, c_inclusive_ns_prefixes, with_comments, c_buffer_ptr)
+                 c_doc, ffi.NULL, exclusive, c_inclusive_ns_prefixes, with_comments, c_buffer_ptr)
              c_buffer = c_buffer_ptr[0]
 
     finally:
@@ -174,7 +173,7 @@ def _tostringC14N(element_or_tree, exclusive, with_comments, inclusive_ns_prefix
             tree.xmlFree(c_buffer)
         raise C14NError, u"C14N failed"
     try:
-        result = c14n.ffi.buffer(c_buffer, byte_count)[:]
+        result = ffi.buffer(c_buffer, byte_count)[:]
     finally:
         tree.xmlFree(c_buffer)
     return result
@@ -236,7 +235,7 @@ def _writeNodeToBuffer(c_buffer, c_node, encoding, c_doctype,
 
     if c_nsdecl_node != c_node:
         # clean up
-        c_nsdecl_node.children = c_nsdecl_node.last = tree.ffi.NULL
+        c_nsdecl_node.children = c_nsdecl_node.last = ffi.NULL
         tree.xmlFreeNode(c_nsdecl_node)
 
     if c_buffer.error:
@@ -272,7 +271,7 @@ def _writeDtdToBuffer(c_buffer,
     c_dtd = c_doc.intSubset
     if not c_dtd or not c_dtd.name:
         return
-    if tree.ffi.string(c_root_name) != tree.ffi.string(c_dtd.name):
+    if ffi.string(c_root_name) != ffi.string(c_dtd.name):
         return
     tree.xmlOutputBufferWrite(c_buffer, 10, "<!DOCTYPE ")
     tree.xmlOutputBufferWriteString(c_buffer, c_dtd.name)
@@ -365,7 +364,7 @@ class _FilelikeWriter(object):
         self.error_log = _ErrorLog()
 
     def _createOutputBuffer(self, enchandler):
-        handle = tree.ffi.new_handle(self)
+        handle = ffi.new_handle(self)
         self._handle = handle
         c_buffer = tree.xmlOutputBufferCreateIO(
             _writeFilelikeWriter,
@@ -379,7 +378,7 @@ class _FilelikeWriter(object):
         try:
             if self._filelike is None:
                 raise IOError, u"File is already closed"
-            py_buffer = tree.ffi.buffer(c_buffer, size)[:]
+            py_buffer = ffi.buffer(c_buffer, size)[:]
             self._filelike.write(py_buffer)
         except:
             size = -1
@@ -400,13 +399,13 @@ class _FilelikeWriter(object):
         finally:
             return retval  # and swallow any further exceptions
 
-@tree.ffi.callback("xmlOutputWriteCallback")
+@ffi.callback("xmlOutputWriteCallback")
 def _writeFilelikeWriter(ctxt, c_buffer, length):
-    return tree.ffi.from_handle(ctxt).write(c_buffer, length)
+    return ffi.from_handle(ctxt).write(c_buffer, length)
 
-@tree.ffi.callback("xmlOutputCloseCallback")
+@ffi.callback("xmlOutputCloseCallback")
 def _closeFilelikeWriter(ctxt):
-    return tree.ffi.from_handle(ctxt).close()
+    return ffi.from_handle(ctxt).close()
 
 def _tofilelike(f, element, encoding, doctype, method,
                 write_xml_declaration, write_doctype,
@@ -438,12 +437,12 @@ def _tofilelike(f, element, encoding, doctype, method,
         return
 
     if encoding is None:
-        c_enc = tree.ffi.NULL
+        c_enc = ffi.NULL
     else:
         encoding = _utf8(encoding)
         c_enc = encoding
     if doctype is None:
-        c_doctype = tree.ffi.NULL
+        c_doctype = ffi.NULL
     else:
         doctype = _utf8(doctype)
         c_doctype = doctype
@@ -501,7 +500,7 @@ def _convert_ns_prefixes(c_dict, ns_prefixes):
              # unknown prefixes do not need to get serialised
              c_ns_prefixes.append(c_prefix)
 
-    c_ns_prefixes.append(tree.ffi.NULL)  # append end marker
+    c_ns_prefixes.append(ffi.NULL)  # append end marker
     return c_ns_prefixes
 
 def _tofilelikeC14N(f, element, exclusive, with_comments, compression,
@@ -514,21 +513,21 @@ def _tofilelikeC14N(f, element, exclusive, with_comments, compression,
     try:
         c_inclusive_ns_prefixes = (
             _convert_ns_prefixes(c_doc.dict, inclusive_ns_prefixes)
-            if inclusive_ns_prefixes else c14n.ffi.NULL)
+            if inclusive_ns_prefixes else ffi.NULL)
 
         if _isString(f):
             filename8 = _encodeFilename(f)
             c_filename = filename8
             if 1:
                 error = c14n.xmlC14NDocSave(
-                    c_doc, tree.ffi.NULL, exclusive, c_inclusive_ns_prefixes,
+                    c_doc, ffi.NULL, exclusive, c_inclusive_ns_prefixes,
                     with_comments, c_filename, compression)
         elif hasattr(f, 'write'):
             writer   = _FilelikeWriter(f, compression=compression)
-            c_buffer = writer._createOutputBuffer(tree.ffi.NULL)
+            c_buffer = writer._createOutputBuffer(ffi.NULL)
             with writer.error_log:
                 bytes_count = c14n.xmlC14NDocSaveTo(
-                    c_doc, c14n.ffi.NULL, exclusive, c_inclusive_ns_prefixes,
+                    c_doc, ffi.NULL, exclusive, c_inclusive_ns_prefixes,
                     with_comments, c_buffer)
                 error = tree.xmlOutputBufferClose(c_buffer)
             if bytes_count < 0:
@@ -762,7 +761,7 @@ class _IncrementalFileWriter(object):
             tree.xmlOutputBufferWrite(self._c_out, 1, ' ')
             self._write_qname(name, prefix)
             tree.xmlOutputBufferWrite(self._c_out, 2, '="')
-            tree.xmlOutputBufferWriteEscape(self._c_out, value, tree.ffi.NULL)
+            tree.xmlOutputBufferWriteEscape(self._c_out, value, ffi.NULL)
             tree.xmlOutputBufferWrite(self._c_out, 1, '"')
 
     def _write_end_element(self, element_config):
@@ -832,12 +831,12 @@ class _IncrementalFileWriter(object):
                     if self._status > WRITER_IN_ELEMENT or content.strip():
                         raise LxmlSyntaxError("not in an element")
                 content = _utf8(content)
-                tree.xmlOutputBufferWriteEscape(self._c_out, content, tree.ffi.NULL)
+                tree.xmlOutputBufferWriteEscape(self._c_out, content, ffi.NULL)
             elif iselement(content):
                 if self._status > WRITER_IN_ELEMENT:
                     raise LxmlSyntaxError("cannot append trailing element to complete XML document")
                 _writeNodeToBuffer(self._c_out, content._c_node,
-                                   self._encoding, tree.ffi.NULL, self._method,
+                                   self._encoding, ffi.NULL, self._method,
                                    False, False, pretty_print, with_tail, False)
                 if content._c_node.type == tree.XML_ELEMENT_NODE:
                     if not self._element_stack:

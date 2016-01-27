@@ -3,9 +3,10 @@ import re
 from .etree import _ExceptionContext, LxmlError
 from .includes.etree_defs import _isElement
 from . import python
-from .includes import xpath, tree, xmlerror
 from .apihelpers import funicode, funicodeOrNone, _isString, _namespacedName
 from .apihelpers import _previousElement, _makeElement, _utf8
+from ._libxml2 import ffi, lib
+xpath = tree = xmlerror = lib
 
 # support for extension functions in XPath and XSLT
 
@@ -35,7 +36,7 @@ class XPathResultError(XPathEvalError):
 class _BaseContext(object):
     def __init__(self, namespaces, extensions, error_log, enable_regexp,
                  build_smart_strings):
-        self._xpathCtxt = xpath.ffi.NULL
+        self._xpathCtxt = ffi.NULL
         self._utf_refs = {}
         self._global_namespaces = []
         self._function_cache = {}
@@ -107,7 +108,7 @@ class _BaseContext(object):
     def _set_xpath_context(self, xpathCtxt):
         from . import xpath
         self._xpathCtxt = xpathCtxt
-        handle = xpath.ffi.new_handle(self)
+        handle = ffi.new_handle(self)
         self._keepalive = handle
         xpathCtxt.userData = handle
         xpathCtxt.error = _receiveXPathError
@@ -125,8 +126,8 @@ class _BaseContext(object):
 
     def _release_context(self):
         if self._xpathCtxt:
-            self._xpathCtxt.userData = xpath.ffi.NULL
-            self._xpathCtxt = xpath.ffi.NULL
+            self._xpathCtxt.userData = ffi.NULL
+            self._xpathCtxt = ffi.NULL
 
     # namespaces (internal UTF-8 methods with leading '_')
 
@@ -171,7 +172,7 @@ class _BaseContext(object):
         if self._global_namespaces:
             for prefix_utf in self._global_namespaces:
                 xpath.xmlXPathRegisterNs(self._xpathCtxt,
-                                         prefix_utf, xpath.ffi.NULL)
+                                         prefix_utf, ffi.NULL)
             del self._global_namespaces[:]
 
     # extension functions
@@ -320,7 +321,7 @@ LIBXML2_XPATH_ERROR_MESSAGES = [
     ]
 
 def _forwardXPathError(c_ctxt, c_error):
-    error = xmlerror.ffi.new("xmlError*")
+    error = ffi.new("xmlError*")
     if c_error.message:
         error.message = c_error.message
     else:
@@ -330,7 +331,7 @@ def _forwardXPathError(c_ctxt, c_error):
         else:
             message = b"unknown error"
         # This message should be kept alive until after the call to _receive().
-        message = xmlerror.ffi.new("char[]", message)
+        message = ffi.new("char[]", message)
         error.message = message
     error.domain = c_error.domain
     error.code = c_error.code
@@ -339,13 +340,13 @@ def _forwardXPathError(c_ctxt, c_error):
     error.int2 = c_error.int1 # column
     error.file = c_error.file
 
-    ctxt = xpath.ffi.from_handle(c_ctxt)
+    ctxt = ffi.from_handle(c_ctxt)
     ctxt._error_log._receive(error)
 
-@xmlerror.ffi.callback("xmlStructuredErrorFunc")
+@ffi.callback("xmlStructuredErrorFunc")
 def _receiveXPathError(c_context, error):
     if not c_context:
-        _forwardError(xmlerror.ffi.NULL, error)
+        _forwardError(ffi.NULL, error)
     else:
         _forwardXPathError(c_context, error)
 
@@ -489,11 +490,11 @@ def _wrapXPathObject(obj, doc, context):
     if python.PyNumber_Check(obj):
         return xpath.xmlXPathNewFloat(obj)
     if obj is None:
-        resultSet = xpath.xmlXPathNodeSetCreate(xpath.ffi.NULL)
+        resultSet = xpath.xmlXPathNodeSetCreate(ffi.NULL)
     elif isinstance(obj, _Element):
         resultSet = xpath.xmlXPathNodeSetCreate(obj._c_node)
     elif python.PySequence_Check(obj):
-        resultSet = xpath.xmlXPathNodeSetCreate(xpath.ffi.NULL)
+        resultSet = xpath.xmlXPathNodeSetCreate(ffi.NULL)
         try:
             for value in obj:
                 if isinstance(value, _Element):
@@ -509,7 +510,7 @@ def _wrapXPathObject(obj, doc, context):
                         value = _utf8(value)
                     if isinstance(value, bytes):
                         if fake_node is None:
-                            fake_node = _makeElement("text-root", tree.ffi.NULL, doc, None,
+                            fake_node = _makeElement("text-root", ffi.NULL, doc, None,
                                                      None, None, None, None, None)
                             context._hold(fake_node)
                         else:
@@ -592,7 +593,7 @@ def _unpackNodeSetEntry(results, c_node, doc,
         results.append(
             _buildElementStringResult(doc, c_node, context))
     elif c_node.type == tree.XML_NAMESPACE_DECL:
-        c_ns = tree.ffi.cast("xmlNsPtr", c_node)
+        c_ns = ffi.cast("xmlNsPtr", c_node)
         results.append( (funicodeOrNone(c_ns.prefix),
                          funicodeOrNone(c_ns.href)) )
     elif c_node.type == tree.XML_DOCUMENT_NODE or \
@@ -616,7 +617,7 @@ def _freeXPathObject(xpathObj):
     """
     if xpathObj.nodesetval:
         xpath.xmlXPathFreeNodeSet(xpathObj.nodesetval)
-        xpathObj.nodesetval = xpath.ffi.NULL
+        xpathObj.nodesetval = ffi.NULL
     xpath.xmlXPathFreeObject(xpathObj)
 
 def _instantiateElementFromXPath(c_node, doc, context):
@@ -683,7 +684,7 @@ def _buildElementStringResult(doc, c_node, context):
             value = funicode(s)
         finally:
             tree.xmlFree(s)
-        c_element = tree.ffi.NULL
+        c_element = ffi.NULL
     else:
         #assert c_node.type == tree.XML_TEXT_NODE or c_node.type == tree.XML_CDATA_SECTION_NODE, "invalid node type"
         # may be tail text or normal text
@@ -732,15 +733,15 @@ def _extension_function_call(context, function, ctxt, nargs):
 
 # lookup the function by name and call it
 
-@xpath.ffi.callback("xmlXPathFunction")
+@ffi.callback("xmlXPathFunction")
 def _xpath_function_call(ctxt, nargs):
     rctxt = ctxt.context
-    context = xpath.ffi.from_handle(rctxt.userData)
+    context = ffi.from_handle(rctxt.userData)
     if rctxt.functionURI:
-        functionURI = xpath.ffi.string(rctxt.functionURI)
+        functionURI = ffi.string(rctxt.functionURI)
     else:
         functionURI = None
-    functionName = xpath.ffi.string(rctxt.function)
+    functionName = ffi.string(rctxt.function)
     function = context._find_cached_function(functionURI, functionName)
     if function is not None:
         _extension_function_call(context, function, ctxt, nargs)

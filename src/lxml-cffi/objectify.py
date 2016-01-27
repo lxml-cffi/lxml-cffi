@@ -11,8 +11,8 @@ from . import etree
 from . import cetree
 from . import python
 from .cetree import textOf
-from .includes import tree
 from .includes.etree_defs import FOR_EACH_ELEMENT_FROM
+from ._libxml2 import ffi, lib as tree
 
 IGNORABLE_ERRORS = (ValueError, TypeError)
 is_special_method = re.compile(u'__.*__$').match
@@ -101,12 +101,12 @@ class ObjectifiedElement(ElementBase):
         Note that this only considers the first child with a given name.
         """
         c_ns = cetree._getNs(self._c_node)
-        tag = u"{%s}*" % tree.ffi.string(c_ns) if c_ns else None
+        tag = u"{%s}*" % ffi.string(c_ns) if c_ns else None
         children = {}
         for child in etree.ElementChildIterator(self, tag=tag):
             if not c_ns and cetree._getNs(child._c_node):
                 continue
-            name = tree.ffi.string(child._c_node.name)
+            name = ffi.string(child._c_node.name)
             if name not in children:
                 children[name] = child
         return children
@@ -290,10 +290,10 @@ class ObjectifiedElement(ElementBase):
 def _tagMatches(c_node, c_href, c_name):
     if c_node.name != c_name:
         return 0
-    if c_href == tree.ffi.NULL:
+    if c_href == ffi.NULL:
         return 1
     c_node_href = cetree._getNs(c_node)
-    if c_node_href == tree.ffi.NULL:
+    if c_node_href == ffi.NULL:
         return c_href == ''
     return tree.xmlStrcmp(c_node_href, c_href) == 0
 
@@ -328,7 +328,7 @@ def _findFollowingSibling(c_node, href, name, index):
             if index < 0:
                 return c_node
         c_node = next(c_node)
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _findFollowingSibling(c_node, href, name, index):
     if index >= 0:
@@ -343,7 +343,7 @@ def _findFollowingSibling(c_node, href, name, index):
             if index < 0:
                 return c_node
         c_node = next(c_node)
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _lookupChild(parent, tag):
     c_node = parent._c_node
@@ -371,8 +371,8 @@ def _lookupChildOrRaise(parent, tag):
 
 def _buildChildTag(parent, tag):
     ns, tag = cetree.getNsTag(tag)
-    c_tag = tree.ffi.new('char[]', tag)
-    c_href = cetree._getNs(parent._c_node) if ns is None else tree.ffi.new('char[]', ns)
+    c_tag = ffi.new('char[]', tag)
+    c_href = cetree._getNs(parent._c_node) if ns is None else ffi.new('char[]', ns)
     return cetree.namespacedNameFromNsName(c_href, c_tag)
 
 def _replaceElement(element, value):
@@ -1556,9 +1556,9 @@ def _annotate_element(c_node, doc,
                     if not c_ns.prefix or c_ns.prefix[0] == '\0':
                         typename_utf8 = name
                     elif tree.xmlStrcmp(prefix, c_ns.prefix) != 0:
-                        typename_utf8 = tree.ffi.string(c_ns.prefix) + b':' + name
+                        typename_utf8 = ffi.string(c_ns.prefix) + b':' + name
                 elif c_ns.prefix and c_ns.prefix[0] != '\0':
-                    typename_utf8 = tree.ffi.string(c_ns.prefix) + b':' + typename_utf8
+                    typename_utf8 = ffi.string(c_ns.prefix) + b':' + typename_utf8
             c_ns = cetree.findOrBuildNodeNsPrefix(
                 doc, c_node, _XML_SCHEMA_INSTANCE_NS, 'xsi')
             tree.xmlSetNsProp(c_node, c_ns, "type", typename_utf8)

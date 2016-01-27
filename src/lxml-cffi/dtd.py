@@ -2,12 +2,13 @@
 
 from .etree import _Validator, LxmlError, _ExceptionContext
 from .parser import _FileReaderContext
-from .includes import tree, xmlparser, dtdvalid
 from .xmlerror import _ErrorLog, helpers
 from .apihelpers import _isString, _encodeFilename
 from .apihelpers import _documentOrRaise, _rootNodeOrRaise
 from .apihelpers import funicode, funicodeOrNone
 from .proxy import _fakeRootDoc, _destroyFakeDoc
+from ._libxml2 import ffi, lib
+tree = xmlparser = dtdvalid = lib
 
 class DTDError(LxmlError):
     u"""Base class for DTD errors.
@@ -23,7 +24,7 @@ def _assertValidDTDNode(node, c_node):
     assert c_node, u"invalid DTD proxy at %s" % id(node)
 
 class _DTDElementContentDecl(object):
-    _c_node = tree.ffi.NULL
+    _c_node = ffi.NULL
 
     def __repr__(self):
         return "<%s.%s object name=%r type=%r occur=%r at 0x%x>" % (self.__class__.__module__, self.__class__.__name__, self.name, self.type, self.occur, id(self))
@@ -88,7 +89,7 @@ class _DTDElementContentDecl(object):
            return None
 
 class _DTDAttributeDecl(object):
-    c_node = tree.ffi.NULL
+    c_node = ffi.NULL
 
     def __repr__(self):
         return "<%s.%s object name=%r elemname=%r prefix=%r type=%r default=%r default_value=%r at 0x%x>" % (self.__class__.__module__, self.__class__.__name__, self.name, self.elemname, self.prefix, self.type, self.default, self.default_value, id(self))
@@ -167,7 +168,7 @@ class _DTDAttributeDecl(object):
 
 
 class _DTDElementDecl(object):
-    _c_node = tree.ffi.NULL
+    _c_node = ffi.NULL
 
     def __repr__(self):
         return "<%s.%s object name=%r prefix=%r type=%r at 0x%x>" % (self.__class__.__module__, self.__class__.__name__, self.name, self.prefix, self.type, id(self))
@@ -225,7 +226,7 @@ class _DTDElementDecl(object):
         return list(self.iterattributes())
 
 class _DTDEntityDecl(object):
-    _c_node = tree.ffi.NULL
+    _c_node = ffi.NULL
 
     def __repr__(self):
         return "<%s.%s object name=%r at 0x%x>" % (self.__class__.__module__, self.__class__.__name__, self.name, id(self))
@@ -258,7 +259,7 @@ class DTD(_Validator):
     Alternatively, pass the keyword parameter ``external_id`` to load from a
     catalog.
     """
-    _c_dtd = tree.ffi.NULL
+    _c_dtd = ffi.NULL
 
     def __init__(self, file=None, external_id=None):
         _Validator.__init__(self)
@@ -266,7 +267,7 @@ class DTD(_Validator):
             if _isString(file):
                 file = _encodeFilename(file)
                 with self._error_log:
-                    self._c_dtd = xmlparser.xmlParseDTD(xmlparser.ffi.NULL,
+                    self._c_dtd = xmlparser.xmlParseDTD(ffi.NULL,
                                                         file)
             elif hasattr(file, 'read'):
                 self._c_dtd = _parseDtdFromFilelike(file)
@@ -305,12 +306,12 @@ class DTD(_Validator):
         return funicodeOrNone(self._c_dtd.SystemID)
 
     def iterelements(self):
-        c_node = self._c_dtd.children if self._c_dtd else tree.ffi.NULL
+        c_node = self._c_dtd.children if self._c_dtd else ffi.NULL
         while c_node:
             if c_node.type == tree.XML_ELEMENT_DECL:
                 node = _DTDElementDecl()
                 node._dtd = self
-                node._c_node = tree.ffi.cast("xmlElementPtr", c_node)
+                node._c_node = ffi.cast("xmlElementPtr", c_node)
                 yield node
             c_node = c_node.next
 
@@ -318,12 +319,12 @@ class DTD(_Validator):
         return list(self.iterelements())
 
     def iterentities(self):
-        c_node = self._c_dtd.children if self._c_dtd else tree.ffi.NULL
+        c_node = self._c_dtd.children if self._c_dtd else ffi.NULL
         while c_node:
             if c_node.type == tree.XML_ENTITY_DECL:
                 node = _DTDEntityDecl()
                 node._dtd = self
-                node._c_node = tree.ffi.cast("xmlEntityPtr", c_node)
+                node._c_node = ffi.cast("xmlEntityPtr", c_node)
                 yield node
             c_node = c_node.next
 
@@ -350,7 +351,7 @@ class DTD(_Validator):
         # work around error reporting bug in libxml2 <= 2.9.1 (and later?)
         # https://bugzilla.gnome.org/show_bug.cgi?id=724903
         valid_ctxt.error = helpers.nullGenericErrorFunc
-        valid_ctxt.userData = dtdvalid.ffi.NULL
+        valid_ctxt.userData = ffi.NULL
 
         try:
             with self._error_log:
@@ -401,7 +402,7 @@ def _copyDtd(c_orig_dtd):
     c_node = c_dtd.children
     while c_node:
         if c_node.type == tree.XML_ATTRIBUTE_DECL:
-            _linkDtdAttribute(c_dtd, tree.ffi.cast("xmlAttributePtr", c_node))
+            _linkDtdAttribute(c_dtd, ffi.cast("xmlAttributePtr", c_node))
         c_node = c_node.next
     return c_dtd
 
@@ -418,7 +419,7 @@ def _linkDtdAttribute(c_dtd, c_attr):
     c_pos = c_elem.attributes
     if not c_pos:
         c_elem.attributes = c_attr
-        c_attr.nexth = tree.ffi.NULL
+        c_attr.nexth = ffi.NULL
         return
     # libxml2 keeps namespace declarations first, and we need to make
     # sure we don't re-insert attributes that are already there
@@ -440,9 +441,9 @@ def _linkDtdAttribute(c_dtd, c_attr):
 
 
 def _isDtdNsDecl(c_attr):
-    if tree.ffi.string(c_attr.name) == "xmlns":
+    if ffi.string(c_attr.name) == "xmlns":
         return True
     if (c_attr.prefix and
-        tree.ffi.string(c_attr.prefix) == "xmlns"):
+        ffi.string(c_attr.prefix) == "xmlns"):
         return True
     return False

@@ -2,13 +2,13 @@
 
 from .includes.etree_defs import _isString, _getNs, _isElement
 from .includes.etree_defs import FOR_EACH_ELEMENT_FROM
-from .includes import tree
+from ._libxml2 import ffi, lib
 from . import python
-from .includes import uri
 from collections import OrderedDict
 import sys
 import re
 import os
+uri = tree = lib
 
 
 def displayNode(c_node, indent):
@@ -249,11 +249,11 @@ def _initNodeNamespaces(c_node, doc,
             _prefixValidOrRaise(prefix_utf)
             c_prefix = prefix_utf
         else:
-            c_prefix = tree.ffi.NULL
+            c_prefix = ffi.NULL
         # add namespace with prefix if it is not already known
         c_ns = tree.xmlSearchNs(doc._c_doc, c_node, c_prefix)
         if not c_ns or not c_ns.href or \
-                tree.ffi.string(c_ns.href) != c_href:
+                ffi.string(c_ns.href) != c_href:
             c_ns = tree.xmlNewNs(c_node, c_href, c_prefix)
         if href_utf == node_ns_utf:
             tree.xmlSetNs(c_node, c_ns)
@@ -299,7 +299,7 @@ def _addAttributeToNode(c_node, doc, is_html,
         tree.xmlNewProp(c_node, name_utf, value_utf)
     else:
         _uriValidOrRaise(ns_utf)
-        c_ns = doc._findOrBuildNodeNs(c_node, ns_utf, tree.ffi.NULL, 1)
+        c_ns = doc._findOrBuildNodeNs(c_node, ns_utf, ffi.NULL, 1)
         tree.xmlNewNsProp(c_node, c_ns,
                           name_utf, value_utf)
 
@@ -359,10 +359,10 @@ def _searchNsByHref(c_node, c_href, is_attribute):
     instead of the default namespaces.  This helps in supporting
     round-trips for attributes on elements with a different namespace.
     """
-    c_default_ns = tree.ffi.NULL
+    c_default_ns = ffi.NULL
     if not c_href or not c_node or c_node.type == tree.XML_ENTITY_REF_NODE:
-        return tree.ffi.NULL
-    if c_href == tree.ffi.string(tree.XML_XML_NAMESPACE):
+        return ffi.NULL
+    if c_href == ffi.string(tree.XML_XML_NAMESPACE):
         # no special cases here, let libxml2 handle this
         return tree.xmlSearchNsByHref(c_node.doc, c_node, c_href)
     if c_node.type == tree.XML_ATTRIBUTE_NODE:
@@ -374,7 +374,7 @@ def _searchNsByHref(c_node, c_href, is_attribute):
         if c_node.type == tree.XML_ELEMENT_NODE:
             c_ns = c_node.nsDef
             while c_ns:
-                if c_ns.href and c_href == tree.ffi.string(c_ns.href):
+                if c_ns.href and c_href == ffi.string(c_ns.href):
                     if not c_ns.prefix and is_attribute:
                         # for attributes, continue searching a named
                         # prefix, but keep the first default namespace
@@ -404,9 +404,9 @@ def _searchNsByHref(c_node, c_href, is_attribute):
     # nothing found => use a matching default namespace or fail
     if c_default_ns:
         if tree.xmlSearchNs(c_element.doc, c_element,
-                            tree.ffi.NULL) == c_default_ns:
+                            ffi.NULL) == c_default_ns:
             return c_default_ns
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _replaceNodeByChildren(doc, c_node):
     from .proxy import moveNodeToDocument
@@ -443,8 +443,8 @@ def _replaceNodeByChildren(doc, c_node):
         c_node.last.next = c_node.next
 
     # unlink c_node
-    c_node.children = c_node.last = tree.ffi.NULL
-    c_node.parent = c_node.next = c_node.prev = tree.ffi.NULL
+    c_node.children = c_node.last = ffi.NULL
+    c_node.parent = c_node.next = c_node.prev = ffi.NULL
     return 0
 
 def _attributeValue(c_element, c_attrib_node):
@@ -469,7 +469,7 @@ def _attributeValueFromNsName(c_element,
 
 def _getNodeAttributeValue(c_node, key, default):
     ns, tag = _getNsTag(key)
-    c_href = tree.ffi.NULL if ns is None else ns
+    c_href = ffi.NULL if ns is None else ns
     c_result = tree.xmlGetNsProp(c_node, tag, c_href)
     if not c_result:
         # XXX free namespace that is not in use..?
@@ -495,16 +495,16 @@ def _setAttributeValue(element, key, value):
         value = _utf8(value)
     c_value = value
     if ns is None:
-        c_ns = tree.ffi.NULL
+        c_ns = ffi.NULL
     else:
         c_ns = element._doc._findOrBuildNodeNs(element._c_node,
-                                               ns, tree.ffi.NULL, 1)
+                                               ns, ffi.NULL, 1)
     tree.xmlSetNsProp(element._c_node, c_ns, c_tag, c_value)
     return 0
 
 def _delAttribute(element, key):
     ns, tag = _getNsTag(key)
-    c_href = ns if ns is not None else tree.ffi.NULL
+    c_href = ns if ns is not None else ffi.NULL
     if _delAttributeFromNsName(element._c_node, c_href, tag):
         raise KeyError, key
 
@@ -562,7 +562,7 @@ def _collectText(c_node):
     """
     # check for multiple text nodes
     scount = 0
-    c_text = tree.ffi.NULL
+    c_text = ffi.NULL
     c_node_cur = c_node = _textNodeOrSkip(c_node)
     while c_node_cur:
         if c_node_cur.content:
@@ -579,7 +579,7 @@ def _collectText(c_node):
     # the rest is not performance critical anymore
     result = b''
     while c_node:
-        result = result + tree.ffi.string(c_node.content)
+        result = result + ffi.string(c_node.content)
         c_node = _textNodeOrSkip(c_node.next)
     return result.decode('utf8')
 
@@ -636,8 +636,8 @@ def _resolveQNameText(element, value):
         return tag
     else:
         c_ns = element._doc._findOrBuildNodeNs(
-            element._c_node, ns, tree.ffi.NULL, 0)
-        return (u'%s:%s' % (tree.ffi.string(c_ns.prefix), tag)).encode()
+            element._c_node, ns, ffi.NULL, 0)
+        return (u'%s:%s' % (ffi.string(c_ns.prefix), tag)).encode()
 
 def _hasChild(c_node):
     return bool(c_node and _findChildForwards(c_node, 0))
@@ -665,7 +665,7 @@ def _findChildSlice(sliceobject, c_parent):
             step = 1
         else:
             step = sliceobject.step
-        return tree.ffi.NULL, step, 0
+        return ffi.NULL, step, 0
     start, stop, step = sliceobject.indices(childcount)
     if step > 0:
         length = (stop - 1 - start) // step + 1
@@ -721,7 +721,7 @@ def _findChildForwards(c_node, index):
                 return c_child
             c += 1
         c_child = c_child.next
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _findChildBackwards(c_node, index):
     u"""Return child element of c_node with index, or return NULL if not found.
@@ -735,7 +735,7 @@ def _findChildBackwards(c_node, index):
                 return c_child
             c += 1
         c_child = c_child.prev
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _textNodeOrSkip(c_node):
     u"""Return the node if it's a text node.  Skip over ignorable nodes in a
@@ -758,33 +758,33 @@ def _nextElement(c_node):
     u"""Given a node, find the next sibling that is an element.
     """
     if not c_node:
-        return tree.ffi.NULL
+        return ffi.NULL
     c_node = c_node.next
     while c_node:
         if _isElement(c_node):
             return c_node
         c_node = c_node.next
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _previousElement(c_node):
     u"""Given a node, find the next sibling that is an element.
     """
     if not c_node:
-        return tree.ffi.NULL
+        return ffi.NULL
     c_node = c_node.prev
     while c_node:
         if _isElement(c_node):
             return c_node
         c_node = c_node.prev
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _parentElement(c_node):
     u"Given a node, find the parent element."
     if not c_node or not _isElement(c_node):
-        return tree.ffi.NULL
+        return ffi.NULL
     c_node = c_node.parent
     if not c_node or not _isElement(c_node):
-        return tree.ffi.NULL
+        return ffi.NULL
     return c_node
 
 def _tagMatches(c_node, c_href, c_name):
@@ -877,7 +877,7 @@ def _nsTagMatchesExactly(c_node_href, c_node_name, c_qname):
     elif not c_node_href:
         return 0
     else:
-        return c_href == tree.ffi.string(c_node_href)
+        return c_href == ffi.string(c_node_href)
 
 def _mapTagsToQnameMatchArray(c_doc, ns_tags, c_ns_tags, force_into_dict):
     u"""Map a sequence of (name, namespace) pairs to a qname array for efficient
@@ -890,7 +890,7 @@ def _mapTagsToQnameMatchArray(c_doc, ns_tags, c_ns_tags, force_into_dict):
     count = 0
     for ns, tag in ns_tags:
         if tag is None:
-            c_tag = tree.ffi.NULL
+            c_tag = ffi.NULL
         elif force_into_dict:
             c_tag = tree.xmlDictLookup(c_doc.dict, tag, len(tag))
             if not c_tag:
@@ -991,13 +991,13 @@ def _nextElement(c_node):
     u"""Given a node, find the next sibling that is an element.
     """
     if not c_node:
-        return tree.ffi.NULL
+        return ffi.NULL
     c_node = c_node.next
     while c_node:
         if _isElement(c_node):
             return c_node
         c_node = c_node.next
-    return tree.ffi.NULL
+    return ffi.NULL
 
 def _deleteSlice(doc, c_node, count, step):
     u"""Delete slice, ``count`` items starting with ``c_node`` with a step
@@ -1264,7 +1264,7 @@ def funicodeOrEmpty(s):
     return funicode(s) if s else ''
 
 def funicode(s):
-    data = tree.ffi.string(s)
+    data = ffi.string(s)
     if python.LXML_UNICODE_STRINGS:
         return data.decode('utf8')
     else:
@@ -1497,7 +1497,7 @@ def _namespacedNameFromNsName(href, name):
     # XXX AFA consider accepting strings only
     if not href:
         return funicode(name)
-    s = "{%s}%s" % (tree.ffi.string(href), tree.ffi.string(name))
+    s = "{%s}%s" % (ffi.string(href), ffi.string(name))
     if python.LXML_UNICODE_STRINGS:
         return s.decode('utf8')
     try:

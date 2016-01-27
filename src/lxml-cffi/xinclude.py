@@ -1,11 +1,11 @@
 # XInclude processing
 
-from .includes import tree
-from .includes import xinclude
 from .etree import LxmlError
 from .xmlerror import _ErrorLog
 from .apihelpers import _assertValidNode
 from .parser import _GLOBAL_PARSER_CONTEXT
+from ._libxml2 import ffi, lib
+tree = xinclude = lib
 
 class XIncludeError(LxmlError):
     u"""Error during XInclude processing.
@@ -41,11 +41,11 @@ class XInclude(object):
         if node._doc._parser is not None:
             parse_options = node._doc._parser._parse_options
             context = node._doc._parser._getParserContext()
-            c_context = tree.ffi.new_handle(context)
+            c_context = ffi.new_handle(context)
         else:
             parse_options = 0
             context = None
-            c_context = tree.ffi.NULL
+            c_context = ffi.NULL
 
         self._error_log.connect()
         if tree.LIBXML_VERSION < 20704 or not c_context:

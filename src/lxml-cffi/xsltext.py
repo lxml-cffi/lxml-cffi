@@ -1,11 +1,12 @@
 # XSLT extension elements
 
-from .includes import xslt, xpath, tree
 from .apihelpers import _getNs, funicode, _isElement
 from . import python
 from .readonlytree import _newReadOnlyProxy, _freeReadOnlyProxies
 from .readonlytree import _newAppendOnlyProxy, _newOpaqueAppendOnlyNodeWrapper
 from .readonlytree import _roNodeOf, _nonRoNodeOf
+from ._libxml2 import ffi, lib
+xslt = xpath = tree = lib
 
 class XSLTExtension(object):
     u"""Base class of an XSLT extension element.
@@ -42,12 +43,12 @@ class XSLTExtension(object):
             c_parent = _nonRoNodeOf(output_parent)
         else:
             c_parent = tree.xmlNewDocNode(
-                context._xsltCtxt.output, tree.ffi.NULL, "fake-parent", tree.ffi.NULL)
+                context._xsltCtxt.output, ffi.NULL, "fake-parent", ffi.NULL)
 
         c_node = context._xsltCtxt.insert
         context._xsltCtxt.insert = c_parent
         xslt.xsltProcessOneNode(
-            context._xsltCtxt, c_context_node, xslt.ffi.NULL)
+            context._xsltCtxt, c_context_node, ffi.NULL)
         context._xsltCtxt.insert = c_node
 
         if output_parent is not None:
@@ -94,11 +95,11 @@ class XSLTExtension(object):
             c_parent = _nonRoNodeOf(output_parent)
         else:
             c_parent = tree.xmlNewDocNode(
-                context._xsltCtxt.output, tree.ffi.NULL, "fake-parent", tree.ffi.NULL)
+                context._xsltCtxt.output, ffi.NULL, "fake-parent", ffi.NULL)
 
         c_ctxt.insert = _nonRoNodeOf(output_parent)
         xslt.xsltApplyOneTemplate(c_ctxt,
-            c_ctxt.node, c_ctxt.inst.children, xslt.ffi.NULL, xslt.ffi.NULL)
+            c_ctxt.node, c_ctxt.inst.children, ffi.NULL, ffi.NULL)
         c_ctxt.insert = c_old_output_parent
 
         if output_parent is not None:
@@ -143,7 +144,7 @@ def _registerXSLTExtensions(c_ctxt, extension_dict):
             c_ctxt, name_utf, ns_utf, _callExtensionElement)
 
 
-@xslt.ffi.callback("xsltTransformFunction")
+@ffi.callback("xsltTransformFunction")
 def _callExtensionElement(c_ctxt,
                           c_context_node,
                           c_inst_node,
@@ -157,9 +158,9 @@ def _callExtensionElement(c_ctxt,
     if not c_ctxt.xpathCtxt.userData:
         # just for safety, should never happen
         return
-    context = xpath.ffi.from_handle(c_ctxt.xpathCtxt.userData)
-    uri = tree.ffi.string(c_uri)
-    node_name = tree.ffi.string(c_inst_node.name)
+    context = ffi.from_handle(c_ctxt.xpathCtxt.userData)
+    uri = ffi.string(c_uri)
+    node_name = ffi.string(c_inst_node.name)
     try:
         try:
             try:
@@ -179,7 +180,7 @@ def _callExtensionElement(c_ctxt,
                     output_parent = _newOpaqueAppendOnlyNodeWrapper(c_ctxt.insert)
                 if c_context_node.type in (tree.XML_DOCUMENT_NODE,
                                            tree.XML_HTML_DOCUMENT_NODE):
-                    c_node = tree.xmlDocGetRootElement(tree.ffi.cast("xmlDocPtr", c_context_node))
+                    c_node = tree.xmlDocGetRootElement(ffi.cast("xmlDocPtr", c_context_node))
                     if c_node:
                         context_node = _newReadOnlyProxy(self_node, c_node)
                     else:
@@ -209,16 +210,16 @@ def _callExtensionElement(c_ctxt,
             message = python.PyBytes_FromFormat(
                 "Error executing extension element '%s': %s",
                 c_inst_node.name, e)
-            xslt.xsltTransformError(c_ctxt, xslt.ffi.NULL, c_inst_node, message)
+            xslt.xsltTransformError(c_ctxt, ffi.NULL, c_inst_node, message)
             context._exc._store_raised()
         except:
             # just in case
             message = python.PyBytes_FromFormat(
                 "Error executing extension element '%s'", c_inst_node.name)
-            xslt.xsltTransformError(c_ctxt, xslt.ffi.NULL, c_inst_node, message)
+            xslt.xsltTransformError(c_ctxt, ffi.NULL, c_inst_node, message)
             context._exc._store_raised()
     except:
         # no Python functions here - everything can fail...
-        xslt.xsltTransformError(c_ctxt, xslt.ffi.NULL, c_inst_node,
+        xslt.xsltTransformError(c_ctxt, ffi.NULL, c_inst_node,
                                 "Error during XSLT extension element evaluation")
         context._exc._store_raised()

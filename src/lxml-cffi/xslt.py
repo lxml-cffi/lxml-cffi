@@ -2,11 +2,11 @@
 
 import re
 
-from .includes import xslt
 from .etree import __unpackIntVersion
+from ._libxml2 import ffi, lib
 
-LIBXSLT_VERSION = __unpackIntVersion(xslt.xsltLibxsltVersion)
-LIBXSLT_COMPILED_VERSION = __unpackIntVersion(xslt.xsltLibxsltVersion)
+LIBXSLT_VERSION = __unpackIntVersion(lib.xsltLibxsltVersion)
+LIBXSLT_COMPILED_VERSION = __unpackIntVersion(lib.xsltLibxsltVersion)
 
 from .apihelpers import _documentOrRaise, _rootNodeOrRaise
 from .apihelpers import _assertValidNode, _assertValidDoc
@@ -20,11 +20,11 @@ from .docloader import (
     PARSER_DATA_STRING, PARSER_DATA_FILENAME, PARSER_DATA_FILE, PARSER_DATA_EMPTY)
 from .extensions import _BaseContext, _xpath_function_call
 from . import python
-from .includes import tree, xmlparser, xmlerror
 from .etree import LxmlError, _elementFactory, _elementTreeFactory, _documentFactory, _newElementTree, _ElementTree, ElementTree
 from .xsltext import _registerXSLTExtensions, XSLTExtension
 from .classlookup import PIBase
 from .parser import _parseDocumentFromURL, _parseDoc, _GLOBAL_PARSER_CONTEXT, _copyDoc
+xslt = tree = xmlparser = xmlerror = lib
 
 class XSLTError(LxmlError):
     u"""Base class of all XSLT errors.
@@ -76,11 +76,11 @@ class _XSLTResolverContext(_ResolverContext):
 def _initXSLTResolverContext(context, parser):
     _initResolverContext(context, parser.resolvers)
     context._parser = parser
-    context._c_style_doc = xslt.ffi.NULL
+    context._c_style_doc = ffi.NULL
 
 def _xslt_resolve_from_python(c_uri, c_context, parse_options):
     # call the Python document loaders
-    context = xslt.ffi.from_handle(c_context)
+    context = ffi.from_handle(c_context)
 
     # shortcut if we resolve the stylesheet itself
     c_doc = context._c_style_doc
@@ -91,12 +91,12 @@ def _xslt_resolve_from_python(c_uri, c_context, parse_options):
     # delegate to the Python resolvers
     try:
         resolvers = context._resolvers
-        uri = _decodeFilename(tree.ffi.string(c_uri))
+        uri = _decodeFilename(ffi.string(c_uri))
         if uri.startswith(u'string://__STRING__XSLT__/'):
             uri = uri[26:]
         doc_ref = resolvers.resolve(uri, None, context)
 
-        c_doc = tree.ffi.NULL
+        c_doc = ffi.NULL
         if doc_ref is not None:
             if doc_ref._type == PARSER_DATA_STRING:
                 c_doc = _parseDoc(
@@ -113,12 +113,12 @@ def _xslt_resolve_from_python(c_uri, c_context, parse_options):
         return c_doc, 0
     except:
         context._store_raised()
-        return tree.ffi.NULL, 1
+        return ffi.NULL, 1
 
 def _xslt_store_resolver_exception(c_uri, context, c_type):
-    context = xslt.ffi.from_handle(context)
+    context = ffi.from_handle(context)
     try:
-        uri = tree.ffi.string(c_uri)
+        uri = ffi.string(c_uri)
         message = u"Cannot resolve URI %s" % _decodeFilename(uri)
         if c_type == xslt.XSLT_LOAD_DOCUMENT:
             exception = XSLTApplyError(message)
@@ -128,7 +128,7 @@ def _xslt_store_resolver_exception(c_uri, context, c_type):
     except Exception, e:
         context._store_exception(e)
 
-@xslt.ffi.callback("xsltDocLoaderFunc")
+@ffi.callback("xsltDocLoaderFunc")
 def _xslt_doc_loader(c_uri, c_dict,
                      parse_options, c_ctxt,
                      c_type):
@@ -136,12 +136,12 @@ def _xslt_doc_loader(c_uri, c_dict,
     # find resolver contexts of stylesheet and transformed doc
     if c_type == xslt.XSLT_LOAD_DOCUMENT:
         # transformation time
-        c_pcontext = xslt.ffi.cast("xsltTransformContextPtr", c_ctxt)._private
+        c_pcontext = ffi.cast("xsltTransformContextPtr", c_ctxt)._private
     elif c_type == xslt.XSLT_LOAD_STYLESHEET:
         # include/import resolution while parsing
-        c_pcontext = xslt.ffi.cast("xsltStylesheetPtr", c_ctxt).doc._private
+        c_pcontext = ffi.cast("xsltStylesheetPtr", c_ctxt).doc._private
     else:
-        c_pcontext = xslt.ffi.NULL
+        c_pcontext = ffi.NULL
 
     if not c_pcontext:
         # can't call Python without context, fall back to default loader
@@ -205,9 +205,9 @@ class XSLTAccessControl(object):
 
     def _setAccess(self, option, allow):
         if allow:
-            function = xslt.xsltSecurityAllow
+            function = ffi.addressof(lib, 'xsltSecurityAllow')
         else:
-            function = xslt.xsltSecurityForbid
+            function = ffi.addressof(lib, 'xsltSecurityForbid')
         xslt.xsltSetSecurityPrefs(self._prefs, option, function)
 
     def _register_in_context(self, ctxt):
@@ -226,9 +226,9 @@ class XSLTAccessControl(object):
 
     def _optval(self, option):
         function = xslt.xsltGetSecurityPrefs(self._prefs, option)
-        if function == xslt.xsltSecurityAllow:
+        if function == ffi.addressof(lib, 'xsltSecurityAllow'):
             return True
-        elif function == xslt.xsltSecurityForbid:
+        elif function == ffi.addressof(lib, 'xsltSecurityForbid'):
             return False
         else:
             return None
@@ -262,7 +262,7 @@ def _register_xslt_function(ctxt, name_utf, ns_utf):
 EMPTY_DICT = {}
 
 class _XSLTContext(_BaseContext):
-    _xsltCtxt = xslt.ffi.NULL
+    _xsltCtxt = ffi.NULL
     _extension_elements = EMPTY_DICT
 
     def __init__(self, namespaces, extensions, error_log, enable_regexp,
@@ -301,7 +301,7 @@ class _XSLTContext(_BaseContext):
         self._release_context()
         if self._xsltCtxt:
             xslt.xsltFreeTransformContext(self._xsltCtxt)
-            self._xsltCtxt = xslt.ffi.NULL
+            self._xsltCtxt = ffi.NULL
         self._release_temp_refs()
 
 
@@ -339,7 +339,7 @@ class XSLT(object):
     Other keyword arguments of the call are passed to the stylesheet
     as parameters.
     """
-    _c_style = xslt.ffi.NULL
+    _c_style = ffi.NULL
     _xslt_resolver_context = None
 
     def __init__(self, xslt_input, extensions=None, regexp=True,
@@ -365,7 +365,7 @@ class XSLT(object):
         _initXSLTResolverContext(self._xslt_resolver_context, doc._parser)
         # keep a copy in case we need to access the stylesheet via 'document()'
         self._xslt_resolver_context._c_style_doc = _copyDoc(c_doc, 1)
-        c_doc._private = self._keepalive = xslt.ffi.new_handle(self._xslt_resolver_context)
+        c_doc._private = self._keepalive = ffi.new_handle(self._xslt_resolver_context)
 
         with self._error_log:
             c_style = xslt.xsltParseStylesheetDoc(c_doc)
@@ -386,7 +386,7 @@ class XSLT(object):
                         u"Cannot parse stylesheet"),
                     self._error_log)
 
-        c_doc._private = tree.ffi.NULL # no longer used!
+        c_doc._private = ffi.NULL # no longer used!
         self._c_style = c_style
         self._context = _XSLTContext(None, extensions, self._error_log, regexp, True)
 
@@ -435,7 +435,7 @@ class XSLT(object):
         from .proxy import _fakeRootDoc, _destroyFakeDoc
         context = None
         profile_doc = None
-        c_result = tree.ffi.NULL
+        c_result = ffi.NULL
 
         assert self._c_style, "XSLT stylesheet not initialised"
         input_doc = _documentOrRaise(_input)
@@ -476,7 +476,7 @@ class XSLT(object):
             context.register_context(transform_ctxt, input_doc)
 
             resolver_context = self._xslt_resolver_context._copy()
-            transform_ctxt._private = resolver_context._keepalive = xslt.ffi.new_handle(resolver_context)
+            transform_ctxt._private = resolver_context._keepalive = ffi.new_handle(resolver_context)
 
             params = _convert_xslt_parameters(transform_ctxt, kw)
             c_result = self._run_transform(
@@ -485,7 +485,7 @@ class XSLT(object):
             if transform_ctxt.state != xslt.XSLT_STATE_OK:
                 if c_result:
                     tree.xmlFreeDoc(c_result)
-                    c_result = tree.ffi.NULL
+                    c_result = ffi.NULL
 
             if transform_ctxt.profile:
                 c_profile_doc = xslt.xsltGetProfileInformation(transform_ctxt)
@@ -501,13 +501,13 @@ class XSLT(object):
             if resolver_context and resolver_context._has_raised():
                 if c_result:
                     tree.xmlFreeDoc(c_result)
-                    c_result = tree.ffi.NULL
+                    c_result = ffi.NULL
                 resolver_context._raise_if_stored()
 
             if context._exc._has_raised():
                 if c_result:
                     tree.xmlFreeDoc(c_result)
-                    c_result = tree.ffi.NULL
+                    c_result = ffi.NULL
                 context._exc._raise_if_stored()
 
             if not c_result:
@@ -537,13 +537,13 @@ class XSLT(object):
                 input_doc._c_doc.dict is not c_result.dict:
             if 1:
                 if c_dict is not c_result.dict:
-                    fixThreadDictNames(tree.ffi.cast("xmlNodePtr", c_result),
+                    fixThreadDictNames(ffi.cast("xmlNodePtr", c_result),
                                        c_dict, c_result.dict)
                 if self._c_style.doc.dict is not c_result.dict:
-                    fixThreadDictNames(tree.ffi.cast("xmlNodePtr", c_result),
+                    fixThreadDictNames(ffi.cast("xmlNodePtr", c_result),
                                        self._c_style.doc.dict, c_result.dict)
                 if input_doc._c_doc.dict is not c_result.dict:
-                    fixThreadDictNames(tree.ffi.cast("xmlNodePtr", c_result),
+                    fixThreadDictNames(ffi.cast("xmlNodePtr", c_result),
                                        input_doc._c_doc.dict, c_result.dict)
         xmlparser.xmlDictFree(c_dict)
 
@@ -555,11 +555,11 @@ class XSLT(object):
         if self._access_control is not None:
             self._access_control._register_in_context(transform_ctxt)
         if 1:
-            c_params = [xslt.ffi.new("char[]", param) for param in params]
-            c_params.append(xslt.ffi.NULL)
+            c_params = [ffi.new("char[]", param) for param in params]
+            c_params.append(ffi.NULL)
             c_result = xslt.xsltApplyStylesheetUser(
                 self._c_style, c_input_doc, c_params,
-                xslt.ffi.NULL, xslt.ffi.NULL, transform_ctxt)
+                ffi.NULL, ffi.NULL, transform_ctxt)
         return c_result
 
 def _convert_xslt_parameters(transform_ctxt, parameters):
@@ -577,9 +577,9 @@ def _convert_xslt_parameters(transform_ctxt, parameters):
                 v = value._path
             else:
                 v = _utf8(value)
-            params.append(tree.ffi.string(
+            params.append(ffi.string(
                 tree.xmlDictLookup(c_dict, k, len(k))))
-            params.append(tree.ffi.string(
+            params.append(ffi.string(
                 tree.xmlDictLookup(c_dict, v, len(v))))
     return params
 
@@ -612,15 +612,15 @@ class _XSLTResultTree(_ElementTree):
             doc = self._doc
             if doc is None:
                 return None
-        s_ptr = xslt.ffi.new("xmlChar**")
-        l_ptr = xslt.ffi.new("int*")
+        s_ptr = ffi.new("xmlChar**")
+        l_ptr = ffi.new("int*")
         if 1:
             r = xslt.xsltSaveResultToString(s_ptr, l_ptr, doc._c_doc,
                                             self._xslt._c_style)
         if r == -1:
             raise MemoryError()
         try:
-            return xslt.ffi.buffer(s_ptr[0], l_ptr[0])[:]
+            return ffi.buffer(s_ptr[0], l_ptr[0])[:]
         finally:
             tree.xmlFree(s_ptr[0])
 
@@ -701,7 +701,7 @@ class _XSLTProcessingInstruction(PIBase):
         _assertValidNode(self)
         if not self._c_node.content:
             raise ValueError, u"PI lacks content"
-        hrefs = _FIND_PI_HREF(u' ' + tree.ffi.string(self._c_node.content).decode('UTF-8'))
+        hrefs = _FIND_PI_HREF(u' ' + ffi.string(self._c_node.content).decode('UTF-8'))
         if len(hrefs) != 1:
             raise ValueError, u"malformed PI attributes"
         hrefs = hrefs[0]

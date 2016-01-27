@@ -1,11 +1,11 @@
 # support for RelaxNG validation
 
 from .etree import _Validator, _LIBXML_VERSION_INT, LxmlError
-from .includes import relaxng
 from .apihelpers import _documentOrRaise, _rootNodeOrRaise, _isString
 from .proxy import _fakeRootDoc, _destroyFakeDoc
 from .xmlerror import _receiveError
 from .parser import _parseDocument
+from ._libxml2 import ffi, lib as relaxng
 
 class RelaxNGError(LxmlError):
     u"""Base class for RelaxNG errors.
@@ -33,9 +33,9 @@ class RelaxNG(_Validator):
     filename through the ``file`` keyword argument.
     """
     def __init__(self, etree=None, file=None):
-        self._c_schema = relaxng.ffi.NULL
+        self._c_schema = ffi.NULL
         _Validator.__init__(self)
-        fake_c_doc = relaxng.ffi.NULL
+        fake_c_doc = ffi.NULL
         if etree is not None:
             doc = _documentOrRaise(etree)
             root_node = _rootNodeOrRaise(etree)

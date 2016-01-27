@@ -5,10 +5,11 @@ from .parser import _raiseParseError, _htmlCtxtResetPush
 from .parser import XMLPullParser, HTMLPullParser
 from .apihelpers import _encodeFilename, _getFilenameForFile, funicode
 from .apihelpers import _rootNodeOrRaise, _findChildForwards
-from .includes import xmlparser, xmlerror, tree, htmlparser
 from .saxparser import PARSE_EVENT_FILTER_START, PARSE_EVENT_FILTER_START_NS
 from .saxparser import PARSE_EVENT_FILTER_END, PARSE_EVENT_FILTER_END_NS
 from . import python
+from ._libxml2 import lib
+xmlparser = xmlerror = tree = htmlparser = lib
 
 _ITERPARSE_CHUNK_SIZE = 32768
 

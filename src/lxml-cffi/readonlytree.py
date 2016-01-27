@@ -1,6 +1,5 @@
 # read-only tree implementation
 
-from .includes import tree
 from .apihelpers import _collectText, _moveTail, _isElement, _setNodeText
 from .apihelpers import funicode, _namespacedName, _findChild
 from .apihelpers import _collectAttributes, _findChildBackwards
@@ -9,11 +8,12 @@ from .apihelpers import _isFullSlice, _findChildSlice
 from .parser import _copyNodeToDoc, _copyDocRoot
 from .etree import _Element, QName, _documentFactory
 from . import python
+from ._libxml2 import ffi, lib as tree
 
 
 class _ReadOnlyProxy(object):
     u"A read-only proxy class suitable for PIs/Comments (for internal use only!)."
-    _c_node = tree.ffi.NULL
+    _c_node = ffi.NULL
     _free_after_use = 0
 
     def _assertNode(self):
@@ -104,7 +104,7 @@ class _ReadOnlyProxy(object):
         u"""Returns the subelement at the given position or the requested
         slice.
         """
-        c_node = tree.ffi.NULL
+        c_node = ffi.NULL
         step = 0
         slicelength = 0
         self._assertNode()
@@ -314,7 +314,7 @@ def _freeReadOnlyProxies(sourceProxy):
         return
     for el in sourceProxy._dependent_proxies:
         c_node = el._c_node
-        el._c_node = tree.ffi.NULL
+        el._c_node = ffi.NULL
         if el._free_after_use:
             tree.xmlFreeNode(c_node)
     del sourceProxy._dependent_proxies[:]
@@ -341,11 +341,11 @@ class _OpaqueDocumentWrapper(_OpaqueNodeWrapper):
         self._assertNode()
         c_node = _roNodeOf(other_element)
         if c_node.type == tree.XML_ELEMENT_NODE:
-            if tree.xmlDocGetRootElement(tree.ffi.cast("xmlDocPtr", self._c_node)):
+            if tree.xmlDocGetRootElement(ffi.cast("xmlDocPtr", self._c_node)):
                 raise ValueError, u"cannot append, document already has a root element"
         elif c_node.type not in (tree.XML_PI_NODE, tree.XML_COMMENT_NODE):
             raise TypeError, u"unsupported element type for top-level node: %d" % c_node.type
-        c_node = _copyNodeToDoc(c_node, tree.ffi.cast("xmlDocPtr", self._c_node))
+        c_node = _copyNodeToDoc(c_node, ffi.cast("xmlDocPtr", self._c_node))
         c_next = c_node.next
         tree.xmlAddChild(self._c_node, c_node)
         _moveTail(c_next, c_node)

@@ -1,9 +1,9 @@
 from .saxparser import _SaxParserContext, _SaxParserTarget
 from .saxparser import *
-from .includes import tree
 from . import python
 from .parser import _raiseParseError
 import sys
+from ._libxml2 import ffi, lib as tree
 
 class _TargetParserResult(Exception):
     # Admittedly, this is somewhat ugly, but it's the easiest way
@@ -102,7 +102,7 @@ class _TargetParserContext(_SaxParserContext):
                     not self._c_ctxt.myDoc._private:
                 # no _Document proxy => orphen
                 tree.xmlFreeDoc(self._c_ctxt.myDoc)
-            self._c_ctxt.myDoc = tree.ffi.NULL
+            self._c_ctxt.myDoc = ffi.NULL
 
     def _handleParseResult(self, parser, result, filename):
         recover = parser._parse_options & xmlparser.XML_PARSE_RECOVER

@@ -7,7 +7,7 @@ from .apihelpers import _removeNode, _removeSiblings, _replaceNodeByChildren
 from .proxy import attemptDeallocation
 from .etree import _MultiTagMatcher, _ElementTree
 from .includes.etree_defs import FOR_EACH_ELEMENT_FROM
-from .includes import tree
+from ._libxml2 import lib as tree
 
 def cleanup_namespaces(tree_or_element):
     u"""cleanup_namespaces(tree_or_element)

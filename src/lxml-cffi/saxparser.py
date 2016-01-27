@@ -2,13 +2,14 @@
 
 from .parser import _ParserContext, _fixHtmlDictNodeNames
 from inspect import getargspec as inspect_getargspec
-from .includes import xmlparser, xmlerror
 from .apihelpers import _namespacedNameFromNsName, _makeElement, _makeSubElement
 from .apihelpers import funicode, funicodeOrNone, funicodeOrEmpty, _appendChild
 from .etree import IMMUTABLE_EMPTY_MAPPING
 from .etree import _documentFactory, _elementFactory, _Element
 from . import python
-from .includes import tree
+from ._libxml2 import ffi, lib
+
+xmlparser = xmlerror = tree = lib
 
 
 SAX_EVENT_START   =  1
@@ -89,8 +90,8 @@ class _SaxParserContext(_ParserContext):
     def _connectTarget(self, c_ctxt):
         """wrap original SAX2 callbacks to call into parser target"""
         sax = c_ctxt.sax
-        self._origSaxStart = sax.startElementNs = xmlparser.ffi.NULL
-        self._origSaxStartNoNs = sax.startElement = xmlparser.ffi.NULL
+        self._origSaxStart = sax.startElementNs = ffi.NULL
+        self._origSaxStartNoNs = sax.startElement = ffi.NULL
         if self._target._sax_event_filter & SAX_EVENT_START:
             # intercept => overwrite orig callback
             # FIXME: also intercept on when collecting END events
@@ -98,14 +99,14 @@ class _SaxParserContext(_ParserContext):
                 sax.startElementNs = _handleSaxTargetStart
             sax.startElement = _handleSaxTargetStartNoNs
 
-        self._origSaxEnd = sax.endElementNs = xmlparser.ffi.NULL
-        self._origSaxEndNoNs = sax.endElement = xmlparser.ffi.NULL
+        self._origSaxEnd = sax.endElementNs = ffi.NULL
+        self._origSaxEndNoNs = sax.endElement = ffi.NULL
         if self._target._sax_event_filter & SAX_EVENT_END:
             if sax.initialized == xmlparser.XML_SAX2_MAGIC:
                 sax.endElementNs = _handleSaxEnd
             sax.endElement = _handleSaxEndNoNs
 
-        self._origSaxData = sax.characters = sax.cdataBlock = xmlparser.ffi.NULL
+        self._origSaxData = sax.characters = sax.cdataBlock = ffi.NULL
         if self._target._sax_event_filter & SAX_EVENT_DATA:
             sax.characters = sax.cdataBlock = _handleSaxData
 
@@ -114,16 +115,16 @@ class _SaxParserContext(_ParserContext):
         if self._target._sax_event_filter & SAX_EVENT_DOCTYPE:
             sax.internalSubset = _handleSaxTargetDoctype
 
-        self._origSaxPI = sax.processingInstruction = xmlparser.ffi.NULL
+        self._origSaxPI = sax.processingInstruction = ffi.NULL
         if self._target._sax_event_filter & SAX_EVENT_PI:
             sax.processingInstruction = _handleSaxPI
 
-        self._origSaxComment = sax.comment = xmlparser.ffi.NULL
+        self._origSaxComment = sax.comment = ffi.NULL
         if self._target._sax_event_filter & SAX_EVENT_COMMENT:
             sax.comment = _handleSaxTargetComment
 
         # enforce entity replacement
-        sax.reference = xmlparser.ffi.NULL
+        sax.reference = ffi.NULL
         c_ctxt.replaceEntities = 1
 
     def _connectEvents(self, c_ctxt):
@@ -231,16 +232,16 @@ def _appendNsEvents(context, c_nb_namespaces, c_namespaces):
         context.events_iterator._events.append( ("start-ns", ns_tuple) )
         c_namespaces += 2
 
-@xmlparser.ffi.callback("startElementNsSAX2Func")
+@ffi.callback("startElementNsSAX2Func")
 def _handleSaxStart(ctxt, c_localname, c_prefix,
                     c_namespace, c_nb_namespaces,
                     c_namespaces,
                     c_nb_attributes, c_nb_defaulted,
                     c_attributes):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         if (c_nb_namespaces and
                 context._event_filter & PARSE_EVENT_FILTER_START_NS):
@@ -262,17 +263,17 @@ def _handleSaxStart(ctxt, c_localname, c_prefix,
     finally:
         return  # swallow any further exceptions
 
-@xmlparser.ffi.callback("startElementNsSAX2Func")
+@ffi.callback("startElementNsSAX2Func")
 def _handleSaxTargetStart(
         ctxt, c_localname, c_prefix,
         c_namespace, c_nb_namespaces,
         c_namespaces,
         c_nb_attributes, c_nb_defaulted,
         c_attributes):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         if (c_nb_namespaces and
             context._event_filter & PARSE_EVENT_FILTER_START_NS):
@@ -291,7 +292,7 @@ def _handleSaxTargetStart(
                 if not c_attributes[3]:
                     value = ''
                 else:
-                    value = xmlparser.ffi.buffer(
+                    value = ffi.buffer(
                         c_attributes[3],
                         c_attributes[4] - c_attributes[3])[:]
                     value = value.decode('utf8')
@@ -322,31 +323,31 @@ def _handleSaxTargetStart(
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("startElementSAXFunc")
+@ffi.callback("startElementSAXFunc")
 def _handleSaxStartNoNs(ctxt, c_name, c_attributes):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         context._origSaxStartNoNs(c_ctxt, c_name, c_attributes)
         if c_ctxt.html:
             _fixHtmlDictNodeNames(c_ctxt.dict, c_ctxt.node)
         if context._event_filter & (PARSE_EVENT_FILTER_END |
                                     PARSE_EVENT_FILTER_START):
-            _pushSaxStartEvent(context, c_ctxt, xmlparser.ffi.NULL, c_name, None)
+            _pushSaxStartEvent(context, c_ctxt, ffi.NULL, c_name, None)
     except:
         context._handleSaxException(c_ctxt)
     finally:
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("startElementSAXFunc")
+@ffi.callback("startElementSAXFunc")
 def _handleSaxTargetStartNoNs(ctxt, c_name, c_attributes):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         if not c_attributes:
             attrib = IMMUTABLE_EMPTY_MAPPING
@@ -361,7 +362,7 @@ def _handleSaxTargetStartNoNs(ctxt, c_name, c_attributes):
             attrib, IMMUTABLE_EMPTY_MAPPING)
         if context._event_filter & (PARSE_EVENT_FILTER_END |
                                     PARSE_EVENT_FILTER_START):
-            _pushSaxStartEvent(context, c_ctxt, xmlparser.ffi.NULL, c_name, element)
+            _pushSaxStartEvent(context, c_ctxt, ffi.NULL, c_name, element)
     except:
         context._handleSaxException(c_ctxt)
     finally:
@@ -390,12 +391,12 @@ def _pushSaxStartEvent(context, c_ctxt,
                 context._event_filter & PARSE_EVENT_FILTER_END):
             context._node_stack.append(node)
 
-@xmlparser.ffi.callback("endElementNsSAX2Func")
+@ffi.callback("endElementNsSAX2Func")
 def _handleSaxEnd(ctxt, c_localname, c_prefix, c_namespace):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         if context._target is not None:
             node = context._target._handleSaxEnd(
@@ -411,19 +412,19 @@ def _handleSaxEnd(ctxt, c_localname, c_prefix, c_namespace):
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("endElementSAXFunc")
+@ffi.callback("endElementSAXFunc")
 def _handleSaxEndNoNs(ctxt, c_name):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         if context._target is not None:
             node = context._target._handleSaxEnd(funicode(c_name))
         else:
             context._origSaxEndNoNs(c_ctxt, c_name)
             node = None
-        _pushSaxEndEvent(context, xmlparser.ffi.NULL, c_name, node)
+        _pushSaxEndEvent(context, ffi.NULL, c_name, node)
     except:
         context._handleSaxException(c_ctxt)
     finally:
@@ -447,29 +448,29 @@ def _pushSaxEndEvent(context, c_href, c_name, node):
             context.events_iterator._events.append(('end', node))
 
 
-@xmlparser.ffi.callback("charactersSAXFunc")
+@ffi.callback("charactersSAXFunc")
 def _handleSaxData(ctxt, c_data, data_len):
     # can only be called if parsing with a target
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
-        data = xmlparser.ffi.buffer(c_data, data_len)[:]
+        data = ffi.buffer(c_data, data_len)[:]
         data = data.decode('utf8')
         context._target._handleSaxData(data)
     except:
         context._handleSaxException(c_ctxt)
 
 
-@xmlparser.ffi.callback("internalSubsetSAXFunc")
+@ffi.callback("internalSubsetSAXFunc")
 def _handleSaxTargetDoctype(ctxt, c_name,
                             c_public, c_system):
     # can only be called if parsing with a target
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         context._target._handleSaxDoctype(
             funicodeOrNone(c_name),
@@ -481,12 +482,12 @@ def _handleSaxTargetDoctype(ctxt, c_name,
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("startDocumentSAXFunc")
+@ffi.callback("startDocumentSAXFunc")
 def _handleSaxStartDocument(ctxt):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     context._origSaxStartDocument(ctxt)
     c_doc = c_ctxt.myDoc
     try:
@@ -497,12 +498,12 @@ def _handleSaxStartDocument(ctxt):
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("processingInstructionSAXFunc")
+@ffi.callback("processingInstructionSAXFunc")
 def _handleSaxPI(ctxt, c_target, c_data):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         pi = context._target._handleSaxPi(
             funicodeOrNone(c_target),
@@ -515,13 +516,13 @@ def _handleSaxPI(ctxt, c_target, c_data):
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("processingInstructionSAXFunc")
+@ffi.callback("processingInstructionSAXFunc")
 def _handleSaxPIEvent(ctxt, target, data):
     # can only be called when collecting pi events
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     context._origSaxPI(ctxt, target, data)
     c_node = _findLastEventNode(c_ctxt)
     if not c_node:
@@ -534,12 +535,12 @@ def _handleSaxPIEvent(ctxt, target, data):
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("commentSAXFunc")
+@ffi.callback("commentSAXFunc")
 def _handleSaxTargetComment(ctxt, c_data):
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     try:
         comment = context._target._handleSaxComment(funicodeOrEmpty(c_data))
         if context._event_filter & PARSE_EVENT_FILTER_COMMENT:
@@ -550,13 +551,13 @@ def _handleSaxTargetComment(ctxt, c_data):
         return  # swallow any further exceptions
 
 
-@xmlparser.ffi.callback("commentSAXFunc")
+@ffi.callback("commentSAXFunc")
 def _handleSaxComment(ctxt, text):
     # can only be called when collecting comment events
-    c_ctxt = xmlparser.ffi.cast("xmlParserCtxtPtr", ctxt)
+    c_ctxt = ffi.cast("xmlParserCtxtPtr", ctxt)
     if not c_ctxt._private or c_ctxt.disableSAX:
         return
-    context = xmlparser.ffi.from_handle(c_ctxt._private)
+    context = ffi.from_handle(c_ctxt._private)
     context._origSaxComment(ctxt, text)
     c_node = _findLastEventNode(c_ctxt)
     if not c_node:
@@ -631,7 +632,7 @@ class TreeBuilder(_SaxParserTarget):
                 self._element_stack[-1], tag, None, None, attrib, nsmap, None)
         else:
             self._last = _makeElement(
-                tag, xmlparser.ffi.NULL, None, self._parser, None, None, attrib, nsmap, None)
+                tag, ffi.NULL, None, self._parser, None, None, attrib, nsmap, None)
         self._element_stack.append(self._last)
         self._in_tail = 0
         return self._last
@@ -647,6 +648,7 @@ class TreeBuilder(_SaxParserTarget):
 
     def _handleSaxPi(self, target, data):
         self._flush()
+        from .etree import ProcessingInstruction
         self._last = ProcessingInstruction(target, data)
         if self._element_stack:
             _appendChild(self._element_stack[-1], self._last)

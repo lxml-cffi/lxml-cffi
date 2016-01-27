@@ -33,6 +33,6 @@ def PyType_Check(obj):
     return isinstance(obj, type)
 
 def PyErr_SetFromErrno(exc):
-    from .includes.xpath import ffi
+    from ._libxml2 import ffi
     raise exc(ffi.errno, "Error")
 
