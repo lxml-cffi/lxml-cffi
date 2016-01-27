@@ -55,7 +55,7 @@ libxml = ffi.verify("""
 
 libxml.ffi = ffi
 
-libxml.LXML_VERSION_STRING = "3.4.0"  # XXX AFA read it from $ROOT/version.txt
+libxml.LXML_VERSION_STRING = "3.4.0.0"  # XXX AFA read it from $ROOT/version.txt
 
 # This overrides the modules!
 tree = dtdvalid = xmlerror = xmlparser = htmlparser = relaxng = libxml
